@@ -1,0 +1,39 @@
+[Unit]
+Description=Shut 'Em Down UniFi device control app
+Documentation=file:/home/bryan/Documents/shutemdown/plan.md
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+
+# This default works with the app currently installed under /home/bryan.
+User=bryan
+Group=bryan
+
+# For stronger isolation, move the app to /opt/shutemdown and use a dedicated user:
+#   sudo useradd --system --home /opt/shutemdown --shell /usr/sbin/nologin shutemdown
+#   sudo mkdir -p /opt/shutemdown
+#   sudo chown -R shutemdown:shutemdown /opt/shutemdown
+# Then update User, Group, WorkingDirectory, Documentation, and ReadWritePaths.
+
+WorkingDirectory=/home/bryan/Documents/shutemdown
+Environment=NODE_ENV=production
+# Production port. Keep 5173 for Vite dev; do not use 8080.
+Environment=PORT=3000
+Environment=PATH=/usr/local/bin:/usr/bin:/bin
+ExecStart=/usr/local/bin/node server/index.js
+
+Restart=on-failure
+RestartSec=5
+TimeoutStopSec=20
+
+# Basic hardening. The app needs write access to config/devices.json.
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=full
+ProtectHome=false
+ReadWritePaths=/home/bryan/Documents/shutemdown/config
+
+[Install]
+WantedBy=multi-user.target
