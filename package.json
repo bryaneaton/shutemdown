@@ -11,15 +11,14 @@
     "start": "NODE_ENV=production node server/index.js"
   },
   "dependencies": {
-    "@vitejs/plugin-react": "latest",
-    "vite": "latest",
-    "typescript": "latest",
-    "react": "latest",
-    "react-dom": "latest",
     "express": "latest",
-    "js-yaml": "latest"
+    "js-yaml": "latest",
+    "react": "latest",
+    "react-dom": "latest"
   },
   "devDependencies": {
-    "concurrently": "latest"
+    "@vitejs/plugin-react": "^6.0.3",
+    "concurrently": "latest",
+    "vite": "^8.1.4"
   }
 }
