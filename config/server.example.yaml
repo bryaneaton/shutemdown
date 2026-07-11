@@ -1,0 +1,32 @@
+server:
+  port: 3000
+
+unifi:
+  # Keep false until you are ready for Block/Allow to make real UniFi changes.
+  enabled: false
+
+  # Official UniFi API-key base URL. Do not use unifi.ui.com here.
+  apiBaseUrl: "https://api.ui.com"
+
+  # Required when enabled is true.
+  apiKey: "replace-with-your-api-key"
+  # Use the full console path segment from unifi.ui.com, including any colon suffix.
+  # Example: "58D61F4B0EE300000000098E34EF000000000A14711E0000000068F9436A:1077159389"
+  consoleId: "replace-with-your-console-id"
+
+  # Used by the official integration API for reads. This is the site UUID from /sites,
+  # not the legacy site name.
+  site: "replace-with-site-uuid"
+
+  # Used by the legacy Network API command endpoint for block-sta/unblock-sta.
+  legacySite: "default"
+
+  # Local-controller login fields are not used by the API-key flow.
+  controllerUrl: ""
+  username: ""
+  password: ""
+
+  # Optional overrides. Leave blank to use the default legacy Network command endpoint:
+  # /proxy/network/api/s/{legacySite}/cmd/stamgr with cmd block-sta/unblock-sta.
+  blockPath: ""
+  allowPath: ""

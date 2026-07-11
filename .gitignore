@@ -1,0 +1,19 @@
+node_modules/
+dist/
+package-lock.json
+
+# Local/example scripts not part of the app.
+unifi_mac_internet.py
+
+# Runtime config and persisted device data. Keep secrets out of git.
+config/server.yaml
+config/devices.json
+
+# Local logs and environment files.
+*.log
+.env
+.env.*
+
+# OS/editor noise.
+.DS_Store
+*.swp
