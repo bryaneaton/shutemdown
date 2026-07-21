@@ -18,6 +18,8 @@ function App() {
   const [devices, setDevices] = useState([]);
   const [status, setStatus] = useState(null);
   const [macAddresses, setMacAddresses] = useState('');
+  const [groupName, setGroupName] = useState('');
+  const [targetGroupName, setTargetGroupName] = useState('');
   const [name, setName] = useState('');
   const [notes, setNotes] = useState('');
   const [message, setMessage] = useState('');
@@ -49,10 +51,11 @@ function App() {
     try {
       const data = await api('/api/devices', {
         method: 'POST',
-        body: JSON.stringify({ macAddresses, name, notes })
+        body: JSON.stringify({ macAddresses, groupName, name, notes })
       });
       setDevices(data.devices);
       setMacAddresses('');
+      setGroupName('');
       setName('');
       setNotes('');
       const updatedCount = data.updated?.length || 0;
@@ -80,15 +83,20 @@ function App() {
     }
   }
 
-  async function applyChanges(action) {
+  async function applyChanges(action, selectedGroupName = '') {
     setSaving(true);
     setError('');
     setMessage('');
 
     try {
-      const result = await api(`/api/apply/${action}`, { method: 'POST' });
+      const trimmedGroupName = selectedGroupName.trim();
+      const result = await api(`/api/apply/${action}`, {
+        method: 'POST',
+        body: JSON.stringify(trimmedGroupName ? { groupName: trimmedGroupName } : {})
+      });
       await refresh();
-      setMessage(`${action === 'block' ? 'Blocked' : 'Allowed'} ${result.deviceCount} devices in ${result.mode} mode.`);
+      const target = result.groupName ? ` in ${result.groupName}` : '';
+      setMessage(`${action === 'block' ? 'Blocked' : 'Allowed'} ${result.deviceCount} devices${target} in ${result.mode} mode.`);
     } catch (err) {
       setError(err.message);
     } finally {
@@ -96,13 +104,15 @@ function App() {
     }
   }
 
+  const groups = [...new Set(devices.map((device) => device.groupName).filter(Boolean))].sort((a, b) => a.localeCompare(b));
+
   return (
     <main className="shell">
       <section className="hero">
         <div>
           <p className="eyebrow">UniFi Device Control</p>
           <h1>Shut 'Em Down</h1>
-          <p className="lede">Keep a server-side shutdown list of MAC addresses and apply it when you are ready.</p>
+          <p className="lede">Keep a server-side shutdown list of MAC addresses and turn off every device or one named group.</p>
         </div>
         <div className="action-row">
           <button className="block" onClick={() => applyChanges('block')} disabled={saving || loading}>
@@ -132,9 +142,40 @@ function App() {
       {message && <p className="notice success">{message}</p>}
       {error && <p className="notice error">{error}</p>}
 
+      <section className="panel group-control">
+        <div>
+          <h2>Turn Off a Group</h2>
+          <p>Enter a group name like TVs, Alexis, or Elise to block or allow only matching devices.</p>
+        </div>
+        <label>
+          Group name
+          <input
+            list="known-groups"
+            value={targetGroupName}
+            onChange={(event) => setTargetGroupName(event.target.value)}
+            placeholder="TVs"
+          />
+        </label>
+        <datalist id="known-groups">
+          {groups.map((group) => <option value={group} key={group} />)}
+        </datalist>
+        <div className="action-row">
+          <button className="block" onClick={() => applyChanges('block', targetGroupName)} disabled={saving || loading || !targetGroupName.trim()}>
+            Block Group
+          </button>
+          <button className="allow" onClick={() => applyChanges('allow', targetGroupName)} disabled={saving || loading || !targetGroupName.trim()}>
+            Allow Group
+          </button>
+        </div>
+      </section>
+
       <div className="content-grid">
         <form className="panel form" onSubmit={addDevices}>
           <h2>Add Devices</h2>
+          <label>
+            Group name
+            <input value={groupName} onChange={(event) => setGroupName(event.target.value)} placeholder="Alexis" />
+          </label>
           <label>
             MAC addresses
             <textarea
@@ -170,6 +211,7 @@ function App() {
                 <article className="device-card" key={device.macAddress}>
                   <div>
                     <strong>{device.name || 'Unnamed device'}</strong>
+                    {device.groupName && <span className="group-pill">{device.groupName}</span>}
                     <code>{device.macAddress}</code>
                     {device.notes && <p>{device.notes}</p>}
                   </div>

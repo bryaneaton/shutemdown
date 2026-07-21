@@ -2,7 +2,7 @@
 
 ## Goal
 
-Build a small web application that lets you manage a server-side list of UniFi network devices by MAC address. The web frontend will allow adding and removing MAC addresses. The backend will own validation, persistence, and the eventual UniFi shutdown/blocking integration.
+Build a small web application that lets you manage a server-side list of UniFi network devices by MAC address. Devices can optionally include a friendly group name so the web frontend can shut off all devices or only one group, such as `TVs`, `Alexis`, or `Elise`. The backend will own validation, persistence, group-name lookup, and the eventual UniFi shutdown/blocking integration.
 
 The application should be mobile friendly so devices can be managed easily from a phone or tablet on the network.
 
@@ -26,12 +26,13 @@ The application should be mobile friendly so devices can be managed easily from 
 
 1. Device list page
    - Display saved MAC addresses.
+   - Show optional friendly group names, such as `Kids`, `TVs`, `Alexis`, or `Elise`.
    - Show optional friendly device names.
    - Show optional notes.
    - Show last apply/status information.
 
 2. Add device form
-   - Fields: `macAddress`, `name`, and `notes`.
+   - Fields: `groupName`, `macAddress`, `name`, and `notes`.
    - Allow adding multiple MAC addresses in one request.
    - Support pasting multiple MAC addresses separated by newlines, commas, or spaces.
    - Validate MAC address format before submitting.
@@ -43,7 +44,9 @@ The application should be mobile friendly so devices can be managed easily from 
 
 4. Apply action
    - Provide an `Apply Changes` button initially.
-   - Backend applies the current device list to UniFi using the provided shutdown/blocking logic.
+   - Backend applies the selected group or all groups to UniFi using the provided shutdown/blocking logic.
+   - Allow selecting a group by friendly group name, such as `TVs`, `Alexis`, or `Elise`, when turning devices off.
+   - Resolve group names server-side so the frontend and future automation do not need internal group IDs.
    - Keep the UniFi integration behind a service boundary so it can start as a stub.
 
 5. Status reporting
@@ -70,6 +73,7 @@ Example request:
 ```json
 {
   "macAddress": "AA:BB:CC:DD:EE:FF",
+  "groupName": "Alexis",
   "name": "Kids iPad",
   "notes": "Block during downtime"
 }
@@ -114,7 +118,17 @@ Removes a configured device.
 POST /api/apply
 ```
 
-Applies the current device list to UniFi.
+Applies the current configured devices to UniFi. The request may optionally include a `groupName` to apply only one group.
+
+Example group-name request:
+
+```json
+{
+  "groupName": "TVs"
+}
+```
+
+If `groupName` is provided, the backend should resolve it case-insensitively against device group names and return a clear error if the name is unknown.
 
 ```http
 GET /api/status
@@ -126,6 +140,8 @@ Returns server and UniFi integration status.
 
 - Validate all MAC addresses server-side.
 - Normalize MAC addresses.
+- Trim optional group names before storage.
+- Support case-insensitive group-name lookup for shutdown/apply requests.
 - Prevent duplicate devices by overwriting an existing entry when the same normalized MAC address is added again.
 - Support bulk add requests with partial-success reporting for invalid or duplicate MAC addresses.
 - Persist devices safely.
@@ -140,7 +156,8 @@ Returns server and UniFi integration status.
 - Provide an add-device form.
 - Provide a bulk-add textarea for multiple MAC addresses.
 - Provide delete controls.
-- Provide an apply button.
+- Provide an apply button for all groups.
+- Provide a simple group-name shutdown control so a user can turn off a named group like `TVs`, `Alexis`, or `Elise` directly.
 - Display loading, validation, success, and error states.
 - Work cleanly on desktop, tablet, and mobile screen sizes.
 - Use touch-friendly controls and readable spacing for phone use.
@@ -165,13 +182,15 @@ Returns server and UniFi integration status.
    - Implement YAML server configuration loading.
    - Add MAC validation and normalization.
    - Implement device CRUD endpoints, including bulk add support.
+   - Implement apply-by-group-name support on `POST /api/apply`.
    - Implement status and apply endpoints with a stub UniFi service.
 
 3. Frontend UI
    - Build the dashboard layout.
    - Add the device table/list.
-   - Add the device form.
+   - Add the device form with optional group name.
    - Add delete and apply actions.
+   - Add a named-group shutdown action for quickly turning off one group.
    - Add status/error display.
 
 4. UniFi integration
@@ -182,6 +201,7 @@ Returns server and UniFi integration status.
 5. Verification
    - Test MAC validation.
    - Test duplicate prevention.
+   - Test shutdown/apply by group name, including unknown names and case-insensitive matches.
    - Test bulk add parsing and partial failures.
    - Test add/remove persistence.
    - Test apply flow with the stub service.
@@ -193,3 +213,4 @@ Returns server and UniFi integration status.
 2. Will this run only on the LAN, or does it need login/authentication?
 3. Should storage remain a JSON file, or should it use SQLite?
 4. Should changes apply immediately or only after clicking `Apply Changes`?
+5. Should group names eventually become full group records with rename/delete controls and schedules?

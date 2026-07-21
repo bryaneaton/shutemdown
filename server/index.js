@@ -15,20 +15,33 @@ app.use(express.json({ limit: '128kb' }));
 function toDevice(input) {
   return {
     macAddress: normalizeMacAddress(input.macAddress),
+    groupName: normalizeGroupName(input.groupName),
     name: typeof input.name === 'string' ? input.name.trim() : '',
     notes: typeof input.notes === 'string' ? input.notes.trim() : '',
     addedAt: input.addedAt || new Date().toISOString()
   };
 }
 
+function normalizeGroupName(value) {
+  return typeof value === 'string' ? value.trim() : '';
+}
+
+function groupKey(value) {
+  return normalizeGroupName(value).toLowerCase();
+}
+
 function devicesFromRequest(body) {
   if (Array.isArray(body.devices)) {
-    return body.devices;
+    return body.devices.map((device) => ({
+      ...device,
+      groupName: device.groupName ?? body.groupName
+    }));
   }
 
   if (typeof body.macAddresses === 'string') {
     return parseMacAddressText(body.macAddresses).map((macAddress) => ({
       macAddress,
+      groupName: body.groupName,
       name: body.name,
       notes: body.notes
     }));
@@ -39,6 +52,22 @@ function devicesFromRequest(body) {
   }
 
   return [];
+}
+
+function selectDevicesForApply(devices, groupName) {
+  const normalizedGroupName = normalizeGroupName(groupName);
+  if (!normalizedGroupName) {
+    return { devices, groupName: '' };
+  }
+
+  const selectedDevices = devices.filter((device) => groupKey(device.groupName) === groupKey(normalizedGroupName));
+  if (selectedDevices.length === 0) {
+    const error = new Error(`No devices found for group: ${normalizedGroupName}`);
+    error.status = 404;
+    throw error;
+  }
+
+  return { devices: selectedDevices, groupName: normalizedGroupName };
 }
 
 app.get('/api/devices', async (_req, res, next) => {
@@ -115,9 +144,12 @@ app.delete('/api/devices/:macAddress', async (req, res, next) => {
   }
 });
 
-app.post('/api/apply', async (_req, res, next) => {
+app.post('/api/apply', async (req, res, next) => {
   try {
-    const result = await applyDeviceList(await readDevices(), await loadServerConfig());
+    const selection = selectDevicesForApply(await readDevices(), req.body?.groupName);
+    const result = await applyDeviceList(selection.devices, await loadServerConfig(), 'block', {
+      groupName: selection.groupName
+    });
     res.json(result);
   } catch (error) {
     next(error);
@@ -131,7 +163,10 @@ app.post('/api/apply/:action', async (req, res, next) => {
       return res.status(400).json({ error: 'Action must be block or allow' });
     }
 
-    const result = await applyDeviceList(await readDevices(), await loadServerConfig(), action);
+    const selection = selectDevicesForApply(await readDevices(), req.body?.groupName);
+    const result = await applyDeviceList(selection.devices, await loadServerConfig(), action, {
+      groupName: selection.groupName
+    });
     res.json(result);
   } catch (error) {
     next(error);
@@ -162,7 +197,7 @@ if (process.env.NODE_ENV === 'production') {
 }
 
 app.use((error, _req, res, _next) => {
-  const status = error.message?.startsWith('Invalid MAC address') ? 400 : 500;
+  const status = error.status || (error.message?.startsWith('Invalid MAC address') ? 400 : 500);
   res.status(status).json({ error: error.message || 'Server error' });
 });
 

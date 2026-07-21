@@ -1,6 +1,6 @@
 let lastApply = null;
 
-export async function applyDeviceList(devices, serverConfig, action = 'block') {
+export async function applyDeviceList(devices, serverConfig, action = 'block', target = {}) {
   const unifi = serverConfig.config?.unifi ?? {};
 
   if (!serverConfig.loaded) {
@@ -14,6 +14,7 @@ export async function applyDeviceList(devices, serverConfig, action = 'block') {
       deviceCount: devices.length,
       mode: 'stub',
       action,
+      groupName: target.groupName || null,
       results: devices.map((device) => ({ macAddress: device.macAddress, ok: true, mode: 'stub' }))
     };
     return lastApply;
@@ -33,6 +34,7 @@ export async function applyDeviceList(devices, serverConfig, action = 'block') {
     deviceCount: devices.length,
     mode: 'api-key',
     action,
+    groupName: target.groupName || null,
     successCount: results.length - failed.length,
     failureCount: failed.length,
     results

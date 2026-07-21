@@ -100,6 +100,7 @@ h1 {
 }
 
 .status-grid,
+.group-control,
 .content-grid {
   display: grid;
   gap: 1rem;
@@ -153,6 +154,17 @@ h1 {
 .panel,
 .notice {
   padding: 1rem;
+}
+
+.group-control {
+  grid-template-columns: 1fr minmax(14rem, 18rem) auto;
+  align-items: end;
+  margin-bottom: 1rem;
+}
+
+.group-control p {
+  margin-bottom: 0;
+  color: #657085;
 }
 
 .notice {
@@ -218,6 +230,17 @@ textarea {
   display: block;
 }
 
+.group-pill {
+  display: inline-block;
+  margin-top: 0.45rem;
+  border-radius: 999px;
+  background: #dff3e4;
+  color: #29563a;
+  padding: 0.2rem 0.55rem;
+  font-size: 0.78rem;
+  font-weight: 900;
+}
+
 .device-card code {
   margin-top: 0.25rem;
   color: #365342;
@@ -240,12 +263,14 @@ textarea {
 @media (max-width: 760px) {
   .hero,
   .action-row,
+  .group-control,
   .device-card {
     align-items: stretch;
     flex-direction: column;
   }
 
   .status-grid,
+  .group-control,
   .content-grid {
     grid-template-columns: 1fr;
   }
