@@ -1,12 +1,14 @@
 [
   {
     "macAddress": "AA:BB:CC:DD:EE:FF",
+    "groupName": "Alexis",
     "name": "Kids iPad",
     "notes": "Block during downtime",
     "addedAt": "2026-01-01T12:00:00.000Z"
   },
   {
     "macAddress": "11:22:33:44:55:66",
+    "groupName": "TVs",
     "name": "Game Console",
     "notes": "Updated records overwrite by normalized MAC address",
     "addedAt": "2026-01-01T12:05:00.000Z",
@@ -14,6 +16,7 @@
   },
   {
     "macAddress": "77:88:99:AA:BB:CC",
+    "groupName": "Elise",
     "name": "Guest Tablet",
     "notes": "Temporary guest device",
     "addedAt": "2026-01-01T12:10:00.000Z"

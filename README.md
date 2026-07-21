@@ -1,14 +1,16 @@
 # Shut 'Em Down
 
-A small LAN-friendly web app for shutting down access to kids' devices with one touch while you are on your network. The React frontend lets you manage a saved list of device MAC addresses, then block or allow those devices from a simple dashboard. The Express backend owns validation, persistence, YAML configuration, and the UniFi API integration boundary.
+A small LAN-friendly web app for shutting down access to kids' devices with one touch while you are on your network. The React frontend lets you manage a saved list of device MAC addresses, then block or allow all devices or a named group from a simple dashboard. The Express backend owns validation, persistence, YAML configuration, and the UniFi API integration boundary.
 
 ## Features
 
 - Add one or more MAC addresses at a time.
+- Assign devices to optional groups like `TVs`, `Alexis`, or `Elise`.
 - Normalize and validate MAC addresses server-side.
 - Store managed devices in `config/devices.json`.
 - Track optional device names and notes.
 - Block or allow the full device list with one tap.
+- Block or allow only devices in a matching group name.
 - Run safely in stub mode until UniFi API settings are enabled.
 - Serve the built frontend from the Node server in production.
 
@@ -96,6 +98,7 @@ Content-Type: application/json
 
 {
   "macAddresses": "AA:BB:CC:DD:EE:FF\n11-22-33-44-55-66",
+  "groupName": "Alexis",
   "name": "Kids devices",
   "notes": "Block during downtime"
 }
@@ -112,6 +115,17 @@ Apply the current list:
 ```http
 POST /api/apply/block
 POST /api/apply/allow
+```
+
+Apply only one group by case-insensitive group name:
+
+```http
+POST /api/apply/block
+Content-Type: application/json
+
+{
+  "groupName": "TVs"
+}
 ```
 
 Check status:
