@@ -45,13 +45,19 @@ button:disabled {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 1rem;
+  gap: clamp(1rem, 4vw, 2.5rem);
   margin: 1rem 0;
   padding: clamp(1.25rem, 5vw, 3rem);
   border-radius: 2rem;
   color: #fff;
   background: radial-gradient(circle at top left, #74d38b, transparent 34%), linear-gradient(135deg, #192239, #2c5741);
   box-shadow: 0 18px 50px rgb(23 32 51 / 18%);
+}
+
+.hero-logo {
+  width: clamp(13rem, 42vw, 24rem);
+  border-radius: 2rem;
+  box-shadow: 0 14px 36px rgb(0 0 0 / 28%);
 }
 
 .eyebrow {
@@ -277,5 +283,10 @@ textarea {
 
   .shell {
     padding: 0.75rem;
+  }
+
+  .hero-logo {
+    order: -1;
+    width: min(20rem, 82vw);
   }
 }
