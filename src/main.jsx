@@ -110,11 +110,6 @@ function App() {
   return (
     <main className="shell">
       <section className="hero">
-        <div className="hero-copy">
-          <p className="eyebrow">UniFi Device Control</p>
-          <h1>Shut 'Em Down</h1>
-          <p className="lede">Keep a server-side shutdown list of MAC addresses and turn off every device or one named group.</p>
-        </div>
         <img className="hero-logo" src={logo} alt="Shut 'Em Down Internet Access Denied logo" />
         <div className="action-row">
           <button className="block" onClick={() => applyChanges('block')} disabled={saving || loading}>
