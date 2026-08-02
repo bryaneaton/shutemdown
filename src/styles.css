@@ -2,6 +2,11 @@
   color: #172033;
   background: #eef3ee;
   font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  --space-xs: 0.25rem;
+  --space-sm: 0.5rem;
+  --space-md: 1rem;
+  --space-lg: 1.5rem;
+  --space-xl: 2rem;
 }
 
 * {
@@ -30,6 +35,21 @@ button {
   font-weight: 800;
 }
 
+button:hover:not(:disabled) {
+  transform: translateY(-1px);
+}
+
+button:active:not(:disabled) {
+  transform: translateY(0);
+}
+
+button:focus-visible,
+input:focus-visible,
+textarea:focus-visible {
+  outline: 3px solid #f7c948;
+  outline-offset: 3px;
+}
+
 button:disabled {
   cursor: not-allowed;
   opacity: 0.6;
@@ -38,15 +58,15 @@ button:disabled {
 .shell {
   width: min(1120px, 100%);
   margin: 0 auto;
-  padding: 1rem;
+  padding: var(--space-md);
 }
 
 .hero {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: clamp(1rem, 4vw, 2.5rem);
-  margin: 1rem 0;
+  gap: clamp(var(--space-md), 4vw, 2.5rem);
+  margin: var(--space-md) 0;
   padding: clamp(1.25rem, 5vw, 3rem);
   border-radius: 2rem;
   color: #fff;
@@ -58,6 +78,56 @@ button:disabled {
   width: clamp(13rem, 42vw, 24rem);
   border-radius: 2rem;
   box-shadow: 0 14px 36px rgb(0 0 0 / 28%);
+}
+
+.hero-controls {
+  display: grid;
+  gap: var(--space-md);
+  min-width: min(100%, 24rem);
+}
+
+.access-state {
+  border: 1px solid rgb(255 255 255 / 24%);
+  border-radius: 1.35rem;
+  background: rgb(255 255 255 / 12%);
+  padding: var(--space-md);
+}
+
+.access-state span {
+  display: block;
+  margin-bottom: var(--space-xs);
+  color: #d9ffe3;
+  font-size: 0.86rem;
+  font-weight: 900;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.access-state strong {
+  display: block;
+  font-size: clamp(1.25rem, 5vw, 2rem);
+  line-height: 1.1;
+}
+
+.access-state.ok strong {
+  color: #b9f4c7;
+}
+
+.access-state.bad strong {
+  color: #ffd4d4;
+}
+
+.access-state.neutral strong {
+  color: #fff;
+}
+
+.access-state.pending strong {
+  color: #ffe6a3;
+}
+
+.access-state p {
+  margin: var(--space-sm) 0 0;
+  color: #ecfff1;
 }
 
 .eyebrow {
@@ -94,6 +164,12 @@ h1 {
   gap: 0.75rem;
 }
 
+.primary-actions button {
+  flex: 1 1 0;
+  min-height: 52px;
+  font-size: 1rem;
+}
+
 .block {
   background: #f0d9d9;
   color: #831f1f;
@@ -109,12 +185,12 @@ h1 {
 .group-control,
 .content-grid {
   display: grid;
-  gap: 1rem;
+  gap: var(--space-md);
 }
 
 .status-grid {
   grid-template-columns: repeat(3, 1fr);
-  margin-bottom: 1rem;
+  margin-bottom: var(--space-md);
 }
 
 .status-grid article,
@@ -127,7 +203,7 @@ h1 {
 }
 
 .status-grid article {
-  padding: 1rem;
+  padding: var(--space-md);
 }
 
 .status-grid span,
@@ -135,16 +211,24 @@ h1 {
   display: block;
   margin-bottom: 0.35rem;
   color: #657085;
-  font-size: 0.85rem;
+  font-size: 0.9rem;
   font-weight: 800;
 }
 
 .status-grid strong {
-  font-size: 1.05rem;
+  font-size: clamp(1rem, 3vw, 1.2rem);
 }
 
 .ok {
   color: #197f3a;
+}
+
+.neutral {
+  color: #39445a;
+}
+
+.pending {
+  color: #8a5a00;
 }
 
 .bad,
@@ -153,19 +237,19 @@ h1 {
 }
 
 .content-grid {
-  grid-template-columns: 0.82fr 1.18fr;
+  grid-template-columns: 1.18fr 0.82fr;
   align-items: start;
 }
 
 .panel,
 .notice {
-  padding: 1rem;
+  padding: var(--space-md);
 }
 
 .group-control {
   grid-template-columns: 1fr minmax(14rem, 18rem) auto;
   align-items: end;
-  margin-bottom: 1rem;
+  margin-bottom: var(--space-md);
 }
 
 .group-control p {
@@ -174,7 +258,7 @@ h1 {
 }
 
 .notice {
-  margin: 0 0 1rem;
+  margin: 0 0 var(--space-md);
   font-weight: 800;
 }
 
@@ -201,6 +285,7 @@ textarea {
   border-radius: 0.85rem;
   background: #fff;
   color: #172033;
+  min-height: 44px;
   padding: 0.85rem;
 }
 
@@ -214,6 +299,11 @@ textarea {
   align-items: baseline;
   justify-content: space-between;
   gap: 1rem;
+  margin-bottom: var(--space-md);
+}
+
+.panel-head h2 {
+  margin-bottom: 0;
 }
 
 .device-list {
@@ -223,17 +313,34 @@ textarea {
 
 .device-card {
   display: flex;
+  align-items: center;
   justify-content: space-between;
-  gap: 1rem;
+  gap: var(--space-md);
   border: 1px solid rgb(23 32 51 / 10%);
   border-radius: 1rem;
   background: #f8faf8;
-  padding: 1rem;
+  padding: var(--space-md);
 }
 
 .device-card strong,
 .device-card code {
   display: block;
+}
+
+.device-main {
+  min-width: 0;
+}
+
+.device-title-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-sm);
+}
+
+.device-title-row strong {
+  font-size: clamp(1.05rem, 4vw, 1.25rem);
+  overflow-wrap: anywhere;
 }
 
 .group-pill {
@@ -243,15 +350,37 @@ textarea {
   background: #dff3e4;
   color: #29563a;
   padding: 0.2rem 0.55rem;
+  font-size: 0.86rem;
+  font-weight: 900;
+}
+
+.state-pill {
+  display: inline-flex;
+  align-items: center;
+  min-height: 28px;
+  border-radius: 999px;
+  padding: 0.2rem 0.6rem;
   font-size: 0.78rem;
   font-weight: 900;
+  text-transform: uppercase;
+}
+
+.state-pill.block {
+  background: #f0d9d9;
+  color: #831f1f;
+}
+
+.state-pill.allow {
+  background: #dff3e4;
+  color: #29563a;
 }
 
 .device-card code {
   margin-top: 0.25rem;
   color: #365342;
-  font-size: 0.95rem;
+  font-size: clamp(0.96rem, 3.5vw, 1.05rem);
   font-weight: 900;
+  overflow-wrap: anywhere;
 }
 
 .device-card p,
@@ -260,7 +389,7 @@ textarea {
   color: #657085;
 }
 
-.device-card button {
+.device-card .remove {
   align-self: center;
   background: #f0d9d9;
   color: #831f1f;
@@ -268,11 +397,17 @@ textarea {
 
 @media (max-width: 760px) {
   .hero,
-  .action-row,
   .group-control,
   .device-card {
     align-items: stretch;
     flex-direction: column;
+  }
+
+  .hero,
+  .action-row,
+  .group-control,
+  .device-card {
+    align-items: stretch;
   }
 
   .status-grid,
@@ -285,8 +420,61 @@ textarea {
     padding: 0.75rem;
   }
 
+  .hero {
+    margin-top: 0.25rem;
+    padding: var(--space-md);
+    border-radius: 1.35rem;
+  }
+
   .hero-logo {
     order: -1;
-    width: min(20rem, 82vw);
+    width: min(16rem, 76vw);
+    justify-self: center;
+    margin-inline: auto;
+    border-radius: 1.25rem;
+  }
+
+  .hero-controls {
+    width: 100%;
+    min-width: 0;
+  }
+
+  .action-row {
+    flex-direction: column;
+  }
+
+  .primary-actions button,
+  .group-control button,
+  .form button,
+  .device-card .remove {
+    width: 100%;
+  }
+
+  .panel,
+  .notice,
+  .status-grid article {
+    border-radius: 1rem;
+  }
+
+  .content-grid .devices {
+    order: 1;
+  }
+
+  .content-grid .form {
+    order: 2;
+  }
+
+  .panel-head {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: var(--space-xs);
+  }
+
+  .device-card {
+    display: grid;
+  }
+
+  .device-card .remove {
+    justify-self: stretch;
   }
 }

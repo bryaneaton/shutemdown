@@ -27,6 +27,7 @@ function App() {
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [applying, setApplying] = useState(false);
 
   async function refresh() {
     const [deviceData, statusData] = await Promise.all([
@@ -72,6 +73,10 @@ function App() {
   }
 
   async function removeDevice(macAddress) {
+    if (!window.confirm(`Remove ${macAddress} from the shutdown list?`)) {
+      return;
+    }
+
     setError('');
     setMessage('');
 
@@ -85,39 +90,74 @@ function App() {
   }
 
   async function applyChanges(action, selectedGroupName = '') {
-    setSaving(true);
+    const trimmedGroupName = selectedGroupName.trim();
+    if (action === 'block' && !trimmedGroupName && !window.confirm('Block internet access for all configured devices?')) {
+      return;
+    }
+
+    setApplying(true);
     setError('');
     setMessage('');
 
     try {
-      const trimmedGroupName = selectedGroupName.trim();
       const result = await api(`/api/apply/${action}`, {
         method: 'POST',
         body: JSON.stringify(trimmedGroupName ? { groupName: trimmedGroupName } : {})
       });
       await refresh();
       const target = result.groupName ? ` in ${result.groupName}` : '';
-      setMessage(`${action === 'block' ? 'Blocked' : 'Allowed'} ${result.deviceCount} devices${target} in ${result.mode} mode.`);
+      const outcome = result.ok === false ? 'Partially applied' : action === 'block' ? 'Blocked' : 'Allowed';
+      const failures = result.failureCount ? ` ${result.failureCount} failed.` : '';
+      setMessage(`${outcome} ${result.deviceCount} devices${target} in ${result.mode} mode.${failures}`);
     } catch (err) {
       setError(err.message);
     } finally {
-      setSaving(false);
+      setApplying(false);
     }
   }
 
   const groups = [...new Set(devices.map((device) => device.groupName).filter(Boolean))].sort((a, b) => a.localeCompare(b));
+  const busy = saving || applying || loading;
+  const lastApply = status?.lastApply;
+  const lastAction = lastApply?.action;
+  const accessState = loading
+    ? { label: 'Loading status...', className: 'pending', detail: 'Checking configured devices and UniFi state.' }
+    : applying
+    ? { label: 'Applying changes...', className: 'pending', detail: 'Please wait while UniFi is updated.' }
+    : error
+      ? { label: 'Action needs attention', className: 'bad', detail: error }
+      : lastAction === 'block'
+        ? { label: 'Internet access: Blocked', className: 'bad', detail: lastApply.groupName ? `Last applied to ${lastApply.groupName}` : 'Last applied to all configured devices' }
+        : lastAction === 'allow'
+          ? { label: 'Internet access: Allowed', className: 'ok', detail: lastApply.groupName ? `Last applied to ${lastApply.groupName}` : 'Last applied to all configured devices' }
+          : { label: 'Internet access: Not applied yet', className: 'neutral', detail: 'Use the controls below to block or allow access.' };
+  const lastApplyText = lastApply?.appliedAt
+    ? `${lastApply.action === 'block' ? 'Blocked' : 'Allowed'} ${lastApply.deviceCount} at ${new Date(lastApply.appliedAt).toLocaleString()}`
+    : 'Never';
+  const deviceAccessAction = (device) => {
+    if (!lastAction) return '';
+    if (!lastApply.groupName) return lastAction;
+    return device.groupName?.toLowerCase() === lastApply.groupName.toLowerCase() ? lastAction : '';
+  };
 
   return (
     <main className="shell">
       <section className="hero">
         <img className="hero-logo" src={logo} alt="Shut 'Em Down Internet Access Denied logo" />
-        <div className="action-row">
-          <button className="block" onClick={() => applyChanges('block')} disabled={saving || loading}>
-            Block Devices
-          </button>
-          <button className="allow" onClick={() => applyChanges('allow')} disabled={saving || loading}>
-            Allow Devices
-          </button>
+        <div className="hero-controls">
+          <div className={`access-state ${accessState.className}`} role="status" aria-live="polite">
+            <span>Current state</span>
+            <strong>{accessState.label}</strong>
+            <p>{accessState.detail}</p>
+          </div>
+          <div className="action-row primary-actions">
+            <button className="block" onClick={() => applyChanges('block')} disabled={busy}>
+              {applying ? 'Applying...' : 'Block All Devices'}
+            </button>
+            <button className="allow" onClick={() => applyChanges('allow')} disabled={busy}>
+              {applying ? 'Applying...' : 'Allow All Devices'}
+            </button>
+          </div>
         </div>
       </section>
 
@@ -127,12 +167,12 @@ function App() {
           <strong className={status?.configLoaded ? 'ok' : 'bad'}>{status?.configLoaded ? 'Loaded' : 'Missing'}</strong>
         </article>
         <article>
-          <span>UniFi</span>
-          <strong>{status?.unifiEnabled ? 'Enabled' : 'Stub mode'}</strong>
+          <span>UniFi connection</span>
+          <strong>{status?.unifiEnabled ? (status?.unifiConfigured ? 'Connected' : 'Needs config') : 'Stub mode'}</strong>
         </article>
         <article>
-          <span>Last Apply</span>
-          <strong>{status?.lastApply?.appliedAt ? `${status.lastApply.action}: ${new Date(status.lastApply.appliedAt).toLocaleString()}` : 'Never'}</strong>
+          <span>Last action</span>
+          <strong>{lastApplyText}</strong>
         </article>
       </section>
 
@@ -141,8 +181,8 @@ function App() {
 
       <section className="panel group-control">
         <div>
-          <h2>Turn Off a Group</h2>
-          <p>Enter a group name like TVs, Alexis, or Elise to block or allow only matching devices.</p>
+          <h2>Group Controls</h2>
+          <p>Choose a saved group, then block or allow only matching devices.</p>
         </div>
         <label>
           Group name
@@ -150,23 +190,55 @@ function App() {
             list="known-groups"
             value={targetGroupName}
             onChange={(event) => setTargetGroupName(event.target.value)}
-            placeholder="TVs"
+            placeholder={groups[0] || 'TVs'}
           />
         </label>
         <datalist id="known-groups">
           {groups.map((group) => <option value={group} key={group} />)}
         </datalist>
         <div className="action-row">
-          <button className="block" onClick={() => applyChanges('block', targetGroupName)} disabled={saving || loading || !targetGroupName.trim()}>
+          <button className="block" onClick={() => applyChanges('block', targetGroupName)} disabled={busy || !targetGroupName.trim()}>
             Block Group
           </button>
-          <button className="allow" onClick={() => applyChanges('allow', targetGroupName)} disabled={saving || loading || !targetGroupName.trim()}>
+          <button className="allow" onClick={() => applyChanges('allow', targetGroupName)} disabled={busy || !targetGroupName.trim()}>
             Allow Group
           </button>
         </div>
       </section>
 
       <div className="content-grid">
+        <section className="panel devices">
+          <div className="panel-head">
+            <h2>Devices</h2>
+            <span>{devices.length} total</span>
+          </div>
+          {loading ? (
+            <p>Loading devices...</p>
+          ) : devices.length === 0 ? (
+            <p className="empty">No devices are on the shutdown list yet.</p>
+          ) : (
+            <div className="device-list">
+              {devices.map((device) => {
+                const accessAction = deviceAccessAction(device);
+                return (
+                  <article className="device-card" key={device.macAddress}>
+                    <div className="device-main">
+                      <div className="device-title-row">
+                        <strong>{device.name || 'Unnamed device'}</strong>
+                        {accessAction && <span className={`state-pill ${accessAction}`}>{accessAction === 'block' ? 'Blocked' : 'Allowed'}</span>}
+                      </div>
+                      {device.groupName && <span className="group-pill">{device.groupName}</span>}
+                      <code>{device.macAddress}</code>
+                      {device.notes && <p>{device.notes}</p>}
+                    </div>
+                    <button className="remove" onClick={() => removeDevice(device.macAddress)} disabled={busy}>Remove</button>
+                  </article>
+                );
+              })}
+            </div>
+          )}
+        </section>
+
         <form className="panel form" onSubmit={addDevices}>
           <h2>Add Devices</h2>
           <label>
@@ -190,34 +262,8 @@ function App() {
             Notes
             <input value={notes} onChange={(event) => setNotes(event.target.value)} placeholder="Block during downtime" />
           </label>
-          <button type="submit" disabled={saving}>{saving ? 'Saving...' : 'Add to List'}</button>
+          <button type="submit" disabled={busy}>{saving ? 'Saving...' : 'Add to List'}</button>
         </form>
-
-        <section className="panel devices">
-          <div className="panel-head">
-            <h2>Devices</h2>
-            <span>{devices.length} total</span>
-          </div>
-          {loading ? (
-            <p>Loading devices...</p>
-          ) : devices.length === 0 ? (
-            <p className="empty">No devices are on the shutdown list yet.</p>
-          ) : (
-            <div className="device-list">
-              {devices.map((device) => (
-                <article className="device-card" key={device.macAddress}>
-                  <div>
-                    <strong>{device.name || 'Unnamed device'}</strong>
-                    {device.groupName && <span className="group-pill">{device.groupName}</span>}
-                    <code>{device.macAddress}</code>
-                    {device.notes && <p>{device.notes}</p>}
-                  </div>
-                  <button onClick={() => removeDevice(device.macAddress)}>Remove</button>
-                </article>
-              ))}
-            </div>
-          )}
-        </section>
       </div>
     </main>
   );
