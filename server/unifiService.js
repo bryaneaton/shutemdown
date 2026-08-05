@@ -1,5 +1,8 @@
 let lastApply = null;
 
+const DEVICE_STATUS_ALLOWED = 'allowed';
+const DEVICE_STATUS_BLOCKED = 'blocked';
+
 export async function applyDeviceList(devices, serverConfig, action = 'block', target = {}) {
   const unifi = serverConfig.config?.unifi ?? {};
 
@@ -51,14 +54,84 @@ export function getApplyStatus() {
   return lastApply;
 }
 
+export async function readDeviceStatuses(devices, serverConfig) {
+  const unifi = serverConfig.config?.unifi ?? {};
+
+  if (!serverConfig.loaded) {
+    throw new Error(serverConfig.error || 'Server configuration is not loaded');
+  }
+
+  if (!unifi.enabled) {
+    return {
+      ok: true,
+      mode: 'stub',
+      checkedAt: new Date().toISOString(),
+      results: devices.map((device) => ({
+        macAddress: device.macAddress,
+        status: normalizeDeviceStatus(device.status),
+        ok: true,
+        mode: 'stub'
+      }))
+    };
+  }
+
+  validateUnifiConfig(unifi, 'status');
+
+  const request = buildDeviceStatusRequest(unifi);
+  const response = await fetch(request.url, {
+    method: request.method,
+    headers: {
+      Accept: 'application/json',
+      'X-API-Key': unifi.apiKey
+    }
+  });
+  const data = await response.json().catch(() => null);
+
+  if (!response.ok) {
+    throw new Error(data?.message || data?.error || response.statusText || 'UniFi status request failed');
+  }
+
+  const byMac = new Map(extractUnifiDevices(data).map((unifiDevice) => [normalizeMacForCompare(unifiDevice.macAddress), unifiDevice]));
+  return {
+    ok: true,
+    mode: 'api-key',
+    checkedAt: new Date().toISOString(),
+    results: devices.map((device) => {
+      const unifiDevice = byMac.get(normalizeMacForCompare(device.macAddress));
+      return {
+        macAddress: device.macAddress,
+        status: unifiDevice?.status ?? normalizeDeviceStatus(device.status),
+        ok: true,
+        found: Boolean(unifiDevice)
+      };
+    })
+  };
+}
+
+export function normalizeDeviceStatus(value) {
+  return value === DEVICE_STATUS_BLOCKED ? DEVICE_STATUS_BLOCKED : DEVICE_STATUS_ALLOWED;
+}
+
 function validateUnifiConfig(unifi, action) {
   const missing = [];
   if (!unifi.apiKey) missing.push('apiKey');
   if (!unifi.consoleId) missing.push('consoleId');
+  if (action === 'status' && !unifi.statusPath && !unifi.site) missing.push('site');
 
   if (missing.length > 0) {
     throw new Error(`UniFi API-key config is missing: ${missing.join(', ')}`);
   }
+}
+
+function buildDeviceStatusRequest(unifi) {
+  const statusPath = unifi.statusPath || `/proxy/network/integration/v1/sites/{site}/clients`;
+  return {
+    method: 'GET',
+    url: buildConnectorUrl(unifi, fillTemplate(statusPath, {
+      site: unifi.site,
+      legacySite: unifi.legacySite || 'default'
+    }))
+  };
 }
 
 async function applyDeviceAction(device, unifi, action) {
@@ -136,5 +209,31 @@ function buildConnectorUrl(unifi, actionPath) {
 }
 
 function fillTemplate(value, replacements) {
-  return String(value).replace(/\{(macAddress|macCompact|mac|action)\}/g, (_match, key) => encodeURIComponent(replacements[key]));
+  return String(value).replace(/\{(macAddress|macCompact|mac|action|site|legacySite)\}/g, (_match, key) => encodeURIComponent(replacements[key]));
+}
+
+function extractUnifiDevices(data) {
+  const candidates = [data, data?.data, data?.clients, data?.devices, data?.data?.clients, data?.data?.devices];
+  const list = candidates.find((candidate) => Array.isArray(candidate)) || [];
+  return list
+    .map((item) => ({
+      macAddress: item.mac || item.macAddress || item.id,
+      status: statusFromUnifiDevice(item)
+    }))
+    .filter((item) => item.macAddress && item.status);
+}
+
+function statusFromUnifiDevice(item) {
+  if (item.blocked === true || item.isBlocked === true || item.blockedAt) return DEVICE_STATUS_BLOCKED;
+  if (item.blocked === false || item.isBlocked === false) return DEVICE_STATUS_ALLOWED;
+
+  const text = String(item.status || item.state || item.authorizationStatus || item.networkStatus || '').toLowerCase();
+  if (text.includes('blocked')) return DEVICE_STATUS_BLOCKED;
+  if (text.includes('allow') || text.includes('authorized') || text.includes('connected')) return DEVICE_STATUS_ALLOWED;
+
+  return null;
+}
+
+function normalizeMacForCompare(macAddress) {
+  return String(macAddress || '').replace(/[^a-fA-F0-9]/g, '').toLowerCase();
 }

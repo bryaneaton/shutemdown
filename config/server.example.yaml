@@ -30,3 +30,7 @@ unifi:
   # /proxy/network/api/s/{legacySite}/cmd/stamgr with cmd block-sta/unblock-sta.
   blockPath: ""
   allowPath: ""
+
+  # Optional status read override. Leave blank to use:
+  # /proxy/network/integration/v1/sites/{site}/clients.
+  statusPath: ""

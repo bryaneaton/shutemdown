@@ -365,12 +365,12 @@ textarea {
   text-transform: uppercase;
 }
 
-.state-pill.block {
+.state-pill.blocked {
   background: #f0d9d9;
   color: #831f1f;
 }
 
-.state-pill.allow {
+.state-pill.allowed {
   background: #dff3e4;
   color: #29563a;
 }

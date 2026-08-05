@@ -4,6 +4,8 @@
     "groupName": "Alexis",
     "name": "Kids iPad",
     "notes": "Block during downtime",
+    "status": "allowed",
+    "statusUpdatedAt": "2026-01-01T12:00:00.000Z",
     "addedAt": "2026-01-01T12:00:00.000Z"
   },
   {
@@ -11,6 +13,8 @@
     "groupName": "TVs",
     "name": "Game Console",
     "notes": "Updated records overwrite by normalized MAC address",
+    "status": "blocked",
+    "statusUpdatedAt": "2026-01-02T08:30:00.000Z",
     "addedAt": "2026-01-01T12:05:00.000Z",
     "updatedAt": "2026-01-02T08:30:00.000Z"
   },
@@ -19,6 +23,8 @@
     "groupName": "Elise",
     "name": "Guest Tablet",
     "notes": "Temporary guest device",
+    "status": "allowed",
+    "statusUpdatedAt": "2026-01-01T12:10:00.000Z",
     "addedAt": "2026-01-01T12:10:00.000Z"
   }
 ]

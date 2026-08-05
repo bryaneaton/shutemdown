@@ -9,6 +9,7 @@ A small LAN-friendly web app for shutting down access to kids' devices with one 
 - Normalize and validate MAC addresses server-side.
 - Store managed devices in `config/devices.json`.
 - Track optional device names and notes.
+- Track each device's current `allowed` or `blocked` status in `config/devices.json`.
 - Block or allow the full device list with one tap.
 - Block or allow only devices in a matching group name.
 - Run safely in stub mode until UniFi API settings are enabled.
@@ -79,6 +80,7 @@ Important fields:
 - `unifi.consoleId`: required when UniFi integration is enabled.
 - `unifi.legacySite`: used for the legacy Network API command endpoint.
 - `unifi.blockPath` and `unifi.allowPath`: optional endpoint overrides.
+- `unifi.statusPath`: optional endpoint override for reading device status. Defaults to `/proxy/network/integration/v1/sites/{site}/clients`.
 
 Do not commit real API keys, credentials, or private network details.
 
@@ -133,6 +135,8 @@ Check status:
 ```http
 GET /api/status
 ```
+
+On server startup, the backend reads UniFi client state and updates each saved device record with `status` and `statusUpdatedAt`. After block/allow actions, the backend refreshes those device statuses from UniFi again; the app does not infer device status from the last button pressed.
 
 ## Deployment
 

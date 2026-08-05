@@ -4,11 +4,12 @@ import { fileURLToPath } from 'node:url';
 import { loadServerConfig } from './config.js';
 import { normalizeMacAddress, parseMacAddressText } from './mac.js';
 import { readDevices, writeDevices } from './storage.js';
-import { applyDeviceList, getApplyStatus } from './unifiService.js';
+import { applyDeviceList, getApplyStatus, normalizeDeviceStatus, readDeviceStatuses } from './unifiService.js';
 
 const app = express();
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const rootDir = path.resolve(__dirname, '..');
+let lastDeviceStatusRefresh = null;
 
 app.use(express.json({ limit: '128kb' }));
 
@@ -18,6 +19,8 @@ function toDevice(input) {
     groupName: normalizeGroupName(input.groupName),
     name: typeof input.name === 'string' ? input.name.trim() : '',
     notes: typeof input.notes === 'string' ? input.notes.trim() : '',
+    status: normalizeDeviceStatus(input.status),
+    statusUpdatedAt: input.statusUpdatedAt || new Date().toISOString(),
     addedAt: input.addedAt || new Date().toISOString()
   };
 }
@@ -70,6 +73,57 @@ function selectDevicesForApply(devices, groupName) {
   return { devices: selectedDevices, groupName: normalizedGroupName };
 }
 
+function recordDeviceStatusRefreshError(error) {
+  lastDeviceStatusRefresh = {
+    ok: false,
+    checkedAt: new Date().toISOString(),
+    error: error.message
+  };
+  return lastDeviceStatusRefresh;
+}
+
+async function refreshStoredDeviceStatuses(serverConfig, targetDevices = null) {
+  const devices = await readDevices();
+  const selectedDevices = targetDevices || devices;
+  if (selectedDevices.length === 0) {
+    return { ok: true, deviceCount: 0, results: [] };
+  }
+
+  const statusResult = await readDeviceStatuses(selectedDevices, serverConfig);
+  const statusByMac = new Map(statusResult.results.map((result) => [result.macAddress, result]));
+  const checkedAt = statusResult.checkedAt || new Date().toISOString();
+  let changed = false;
+
+  const nextDevices = devices.map((device) => {
+    const status = statusByMac.get(device.macAddress)?.status;
+    if (!status || device.status === status) {
+      if (device.status && device.statusUpdatedAt) {
+        return device;
+      }
+
+      changed = true;
+      return { ...device, status: normalizeDeviceStatus(device.status), statusUpdatedAt: device.statusUpdatedAt || checkedAt };
+    }
+
+    changed = true;
+    return { ...device, status, statusUpdatedAt: checkedAt };
+  });
+
+  if (changed) {
+    await writeDevices(nextDevices);
+  }
+
+  lastDeviceStatusRefresh = {
+    ...statusResult,
+    deviceCount: selectedDevices.length
+  };
+
+  return {
+    ...lastDeviceStatusRefresh,
+    devices: nextDevices
+  };
+}
+
 app.get('/api/devices', async (_req, res, next) => {
   try {
     res.json({ devices: await readDevices() });
@@ -97,8 +151,11 @@ app.post('/api/devices', async (req, res, next) => {
         if (byMac.has(device.macAddress)) {
           const existingDevice = byMac.get(device.macAddress);
           const nextDevice = {
+            ...existingDevice,
             ...device,
             addedAt: existingDevice.addedAt || device.addedAt,
+            status: existingDevice.status || device.status,
+            statusUpdatedAt: existingDevice.statusUpdatedAt || device.statusUpdatedAt,
             updatedAt: new Date().toISOString()
           };
           byMac.set(device.macAddress, nextDevice);
@@ -150,6 +207,7 @@ app.post('/api/apply', async (req, res, next) => {
     const result = await applyDeviceList(selection.devices, await loadServerConfig(), 'block', {
       groupName: selection.groupName
     });
+    result.statusRefresh = await refreshStoredDeviceStatuses(await loadServerConfig(), selection.devices).catch(recordDeviceStatusRefreshError);
     res.json(result);
   } catch (error) {
     next(error);
@@ -164,9 +222,11 @@ app.post('/api/apply/:action', async (req, res, next) => {
     }
 
     const selection = selectDevicesForApply(await readDevices(), req.body?.groupName);
-    const result = await applyDeviceList(selection.devices, await loadServerConfig(), action, {
+    const serverConfig = await loadServerConfig();
+    const result = await applyDeviceList(selection.devices, serverConfig, action, {
       groupName: selection.groupName
     });
+    result.statusRefresh = await refreshStoredDeviceStatuses(serverConfig, selection.devices).catch(recordDeviceStatusRefreshError);
     res.json(result);
   } catch (error) {
     next(error);
@@ -185,7 +245,8 @@ app.get('/api/status', async (_req, res) => {
       serverConfig.config?.unifi?.consoleId &&
       serverConfig.config?.unifi?.site
     ),
-    lastApply: getApplyStatus()
+    lastApply: getApplyStatus(),
+    lastDeviceStatusRefresh
   });
 });
 
@@ -202,6 +263,10 @@ app.use((error, _req, res, _next) => {
 });
 
 const config = await loadServerConfig();
+refreshStoredDeviceStatuses(config).catch((error) => {
+  recordDeviceStatusRefreshError(error);
+  console.error(`Device status refresh failed: ${error.message}`);
+});
 const port = Number(process.env.PORT || config.config?.server?.port || 3000);
 app.listen(port, () => {
   console.log(`Server listening on http://localhost:${port}`);

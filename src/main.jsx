@@ -119,26 +119,22 @@ function App() {
   const groups = [...new Set(devices.map((device) => device.groupName).filter(Boolean))].sort((a, b) => a.localeCompare(b));
   const busy = saving || applying || loading;
   const lastApply = status?.lastApply;
-  const lastAction = lastApply?.action;
+  const blockedCount = devices.filter((device) => device.status === 'blocked').length;
+  const allowedCount = devices.filter((device) => device.status !== 'blocked').length;
   const accessState = loading
     ? { label: 'Loading status...', className: 'pending', detail: 'Checking configured devices and UniFi state.' }
     : applying
     ? { label: 'Applying changes...', className: 'pending', detail: 'Please wait while UniFi is updated.' }
     : error
       ? { label: 'Action needs attention', className: 'bad', detail: error }
-      : lastAction === 'block'
-        ? { label: 'Internet access: Blocked', className: 'bad', detail: lastApply.groupName ? `Last applied to ${lastApply.groupName}` : 'Last applied to all configured devices' }
-        : lastAction === 'allow'
-          ? { label: 'Internet access: Allowed', className: 'ok', detail: lastApply.groupName ? `Last applied to ${lastApply.groupName}` : 'Last applied to all configured devices' }
-          : { label: 'Internet access: Not applied yet', className: 'neutral', detail: 'Use the controls below to block or allow access.' };
+      : blockedCount > 0
+        ? { label: 'Some devices blocked', className: 'bad', detail: `${blockedCount} blocked, ${allowedCount} allowed.` }
+        : devices.length > 0
+          ? { label: 'Internet access: Allowed', className: 'ok', detail: 'All configured devices are currently allowed.' }
+          : { label: 'Internet access: No devices', className: 'neutral', detail: 'Add devices below to track their UniFi status.' };
   const lastApplyText = lastApply?.appliedAt
     ? `${lastApply.action === 'block' ? 'Blocked' : 'Allowed'} ${lastApply.deviceCount} at ${new Date(lastApply.appliedAt).toLocaleString()}`
     : 'Never';
-  const deviceAccessAction = (device) => {
-    if (!lastAction) return '';
-    if (!lastApply.groupName) return lastAction;
-    return device.groupName?.toLowerCase() === lastApply.groupName.toLowerCase() ? lastAction : '';
-  };
 
   return (
     <main className="shell">
@@ -219,16 +215,17 @@ function App() {
           ) : (
             <div className="device-list">
               {devices.map((device) => {
-                const accessAction = deviceAccessAction(device);
+                const accessStatus = device.status === 'blocked' ? 'blocked' : 'allowed';
                 return (
                   <article className="device-card" key={device.macAddress}>
                     <div className="device-main">
                       <div className="device-title-row">
                         <strong>{device.name || 'Unnamed device'}</strong>
-                        {accessAction && <span className={`state-pill ${accessAction}`}>{accessAction === 'block' ? 'Blocked' : 'Allowed'}</span>}
+                        <span className={`state-pill ${accessStatus}`}>{accessStatus === 'blocked' ? 'Blocked' : 'Allowed'}</span>
                       </div>
                       {device.groupName && <span className="group-pill">{device.groupName}</span>}
                       <code>{device.macAddress}</code>
+                      {device.statusUpdatedAt && <p>Status checked {new Date(device.statusUpdatedAt).toLocaleString()}</p>}
                       {device.notes && <p>{device.notes}</p>}
                     </div>
                     <button className="remove" onClick={() => removeDevice(device.macAddress)} disabled={busy}>Remove</button>
