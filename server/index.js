@@ -139,6 +139,36 @@ async function refreshStoredDeviceStatuses(serverConfig, targetDevices = null) {
   };
 }
 
+async function recordAppliedDeviceStatuses(action, applyResult) {
+  const status = action === "block" ? "blocked" : "allowed";
+  const appliedAt = applyResult.appliedAt || new Date().toISOString();
+  const successfulMacs = new Set(
+    (applyResult.results || [])
+      .filter((result) => result.ok)
+      .map((result) => result.macAddress),
+  );
+
+  if (successfulMacs.size === 0) {
+    return [];
+  }
+
+  let changed = false;
+  const nextDevices = (await readDevices()).map((device) => {
+    if (!successfulMacs.has(device.macAddress)) {
+      return device;
+    }
+
+    changed = true;
+    return { ...device, status, statusUpdatedAt: appliedAt };
+  });
+
+  if (changed) {
+    await writeDevices(nextDevices);
+  }
+
+  return nextDevices;
+}
+
 app.get("/api/devices", async (_req, res, next) => {
   try {
     res.json({ devices: await readDevices() });
@@ -244,6 +274,7 @@ app.post("/api/apply", async (req, res, next) => {
       await loadServerConfig(),
       selection.devices,
     ).catch(recordDeviceStatusRefreshError);
+    await recordAppliedDeviceStatuses("block", result);
     res.json(result);
   } catch (error) {
     next(error);
@@ -274,6 +305,7 @@ app.post("/api/apply/:action", async (req, res, next) => {
       serverConfig,
       selection.devices,
     ).catch(recordDeviceStatusRefreshError);
+    await recordAppliedDeviceStatuses(action, result);
     res.json(result);
   } catch (error) {
     next(error);

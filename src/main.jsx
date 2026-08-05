@@ -255,18 +255,21 @@ function App() {
         </div>
         <label>
           Group name
-          <input
-            list="known-groups"
+          <select
             value={targetGroupName}
             onChange={(event) => setTargetGroupName(event.target.value)}
-            placeholder={groups[0] || "TVs"}
-          />
+            disabled={busy || groups.length === 0}
+          >
+            <option value="">
+              {groups.length === 0 ? "No saved groups" : "Choose a group"}
+            </option>
+            {groups.map((group) => (
+              <option value={group} key={group}>
+                {group}
+              </option>
+            ))}
+          </select>
         </label>
-        <datalist id="known-groups">
-          {groups.map((group) => (
-            <option value={group} key={group} />
-          ))}
-        </datalist>
         <div className="action-row">
           <button
             className="block"

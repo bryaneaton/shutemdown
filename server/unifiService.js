@@ -251,21 +251,38 @@ function fillTemplate(value, replacements) {
 }
 
 function extractUnifiDevices(data) {
-  const candidates = [
-    data,
-    data?.data,
-    data?.clients,
-    data?.devices,
-    data?.data?.clients,
-    data?.data?.devices,
-  ];
-  const list = candidates.find((candidate) => Array.isArray(candidate)) || [];
-  return list
-    .map((item) => ({
-      macAddress: item.mac || item.macAddress || item.id,
-      status: statusFromUnifiDevice(item),
-    }))
-    .filter((item) => item.macAddress && item.status);
+  const devices = [];
+  collectUnifiDevices(data, devices);
+  return devices;
+}
+
+function collectUnifiDevices(value, devices) {
+  if (!value || typeof value !== "object") {
+    return;
+  }
+
+  if (Array.isArray(value)) {
+    for (const item of value) {
+      collectUnifiDevices(item, devices);
+    }
+    return;
+  }
+
+  const macAddress =
+    value.mac ||
+    value.macAddress ||
+    value.clientMac ||
+    value.client_mac ||
+    value.hardwareAddress ||
+    value.id;
+  const status = statusFromUnifiDevice(value);
+  if (macAddress && status) {
+    devices.push({ macAddress, status });
+  }
+
+  for (const child of Object.values(value)) {
+    collectUnifiDevices(child, devices);
+  }
 }
 
 function statusFromUnifiDevice(item) {
