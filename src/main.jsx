@@ -1,16 +1,16 @@
-import React, { useEffect, useState } from 'react';
-import { createRoot } from 'react-dom/client';
-import logo from './assets/logo.png';
-import './styles.css';
+import React, { useEffect, useState } from "react";
+import { createRoot } from "react-dom/client";
+import logo from "./assets/logo.png";
+import "./styles.css";
 
 async function api(path, options = {}) {
   const response = await fetch(path, {
-    headers: { 'Content-Type': 'application/json', ...(options.headers || {}) },
-    ...options
+    headers: { "Content-Type": "application/json", ...(options.headers || {}) },
+    ...options,
   });
   const data = await response.json().catch(() => ({}));
   if (!response.ok) {
-    throw new Error(data.error || 'Request failed');
+    throw new Error(data.error || "Request failed");
   }
   return data;
 }
@@ -18,21 +18,21 @@ async function api(path, options = {}) {
 function App() {
   const [devices, setDevices] = useState([]);
   const [status, setStatus] = useState(null);
-  const [macAddresses, setMacAddresses] = useState('');
-  const [groupName, setGroupName] = useState('');
-  const [targetGroupName, setTargetGroupName] = useState('');
-  const [name, setName] = useState('');
-  const [notes, setNotes] = useState('');
-  const [message, setMessage] = useState('');
-  const [error, setError] = useState('');
+  const [macAddresses, setMacAddresses] = useState("");
+  const [groupName, setGroupName] = useState("");
+  const [targetGroupName, setTargetGroupName] = useState("");
+  const [name, setName] = useState("");
+  const [notes, setNotes] = useState("");
+  const [message, setMessage] = useState("");
+  const [error, setError] = useState("");
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [applying, setApplying] = useState(false);
 
   async function refresh() {
     const [deviceData, statusData] = await Promise.all([
-      api('/api/devices'),
-      api('/api/status')
+      api("/api/devices"),
+      api("/api/status"),
     ]);
     setDevices(deviceData.devices);
     setStatus(statusData);
@@ -47,23 +47,27 @@ function App() {
   async function addDevices(event) {
     event.preventDefault();
     setSaving(true);
-    setError('');
-    setMessage('');
+    setError("");
+    setMessage("");
 
     try {
-      const data = await api('/api/devices', {
-        method: 'POST',
-        body: JSON.stringify({ macAddresses, groupName, name, notes })
+      const data = await api("/api/devices", {
+        method: "POST",
+        body: JSON.stringify({ macAddresses, groupName, name, notes }),
       });
       setDevices(data.devices);
-      setMacAddresses('');
-      setGroupName('');
-      setName('');
-      setNotes('');
+      setMacAddresses("");
+      setGroupName("");
+      setName("");
+      setNotes("");
       const updatedCount = data.updated?.length || 0;
-      setMessage(`Added ${data.added.length} and updated ${updatedCount} device${data.added.length + updatedCount === 1 ? '' : 's'}.`);
+      setMessage(
+        `Added ${data.added.length} and updated ${updatedCount} device${data.added.length + updatedCount === 1 ? "" : "s"}.`,
+      );
       if (data.rejected.length > 0) {
-        setError(`${data.rejected.length} item${data.rejected.length === 1 ? '' : 's'} rejected: ${data.rejected.map((item) => item.macAddress || item.reason).join(', ')}`);
+        setError(
+          `${data.rejected.length} item${data.rejected.length === 1 ? "" : "s"} rejected: ${data.rejected.map((item) => item.macAddress || item.reason).join(", ")}`,
+        );
       }
     } catch (err) {
       setError(err.message);
@@ -77,11 +81,13 @@ function App() {
       return;
     }
 
-    setError('');
-    setMessage('');
+    setError("");
+    setMessage("");
 
     try {
-      const data = await api(`/api/devices/${encodeURIComponent(macAddress)}`, { method: 'DELETE' });
+      const data = await api(`/api/devices/${encodeURIComponent(macAddress)}`, {
+        method: "DELETE",
+      });
       setDevices(data.devices);
       setMessage(`Removed ${macAddress}.`);
     } catch (err) {
@@ -89,26 +95,41 @@ function App() {
     }
   }
 
-  async function applyChanges(action, selectedGroupName = '') {
+  async function applyChanges(action, selectedGroupName = "") {
     const trimmedGroupName = selectedGroupName.trim();
-    if (action === 'block' && !trimmedGroupName && !window.confirm('Block internet access for all configured devices?')) {
+    if (
+      action === "block" &&
+      !trimmedGroupName &&
+      !window.confirm("Block internet access for all configured devices?")
+    ) {
       return;
     }
 
     setApplying(true);
-    setError('');
-    setMessage('');
+    setError("");
+    setMessage("");
 
     try {
       const result = await api(`/api/apply/${action}`, {
-        method: 'POST',
-        body: JSON.stringify(trimmedGroupName ? { groupName: trimmedGroupName } : {})
+        method: "POST",
+        body: JSON.stringify(
+          trimmedGroupName ? { groupName: trimmedGroupName } : {},
+        ),
       });
       await refresh();
-      const target = result.groupName ? ` in ${result.groupName}` : '';
-      const outcome = result.ok === false ? 'Partially applied' : action === 'block' ? 'Blocked' : 'Allowed';
-      const failures = result.failureCount ? ` ${result.failureCount} failed.` : '';
-      setMessage(`${outcome} ${result.deviceCount} devices${target} in ${result.mode} mode.${failures}`);
+      const target = result.groupName ? ` in ${result.groupName}` : "";
+      const outcome =
+        result.ok === false
+          ? "Partially applied"
+          : action === "block"
+            ? "Blocked"
+            : "Allowed";
+      const failures = result.failureCount
+        ? ` ${result.failureCount} failed.`
+        : "";
+      setMessage(
+        `${outcome} ${result.deviceCount} devices${target} in ${result.mode} mode.${failures}`,
+      );
     } catch (err) {
       setError(err.message);
     } finally {
@@ -116,42 +137,84 @@ function App() {
     }
   }
 
-  const groups = [...new Set(devices.map((device) => device.groupName).filter(Boolean))].sort((a, b) => a.localeCompare(b));
+  const groups = [
+    ...new Set(devices.map((device) => device.groupName).filter(Boolean)),
+  ].sort((a, b) => a.localeCompare(b));
   const busy = saving || applying || loading;
   const lastApply = status?.lastApply;
-  const blockedCount = devices.filter((device) => device.status === 'blocked').length;
-  const allowedCount = devices.filter((device) => device.status !== 'blocked').length;
+  const blockedCount = devices.filter(
+    (device) => device.status === "blocked",
+  ).length;
+  const allowedCount = devices.filter(
+    (device) => device.status !== "blocked",
+  ).length;
   const accessState = loading
-    ? { label: 'Loading status...', className: 'pending', detail: 'Checking configured devices and UniFi state.' }
+    ? {
+        label: "Loading status...",
+        className: "pending",
+        detail: "Checking configured devices and UniFi state.",
+      }
     : applying
-    ? { label: 'Applying changes...', className: 'pending', detail: 'Please wait while UniFi is updated.' }
-    : error
-      ? { label: 'Action needs attention', className: 'bad', detail: error }
-      : blockedCount > 0
-        ? { label: 'Some devices blocked', className: 'bad', detail: `${blockedCount} blocked, ${allowedCount} allowed.` }
-        : devices.length > 0
-          ? { label: 'Internet access: Allowed', className: 'ok', detail: 'All configured devices are currently allowed.' }
-          : { label: 'Internet access: No devices', className: 'neutral', detail: 'Add devices below to track their UniFi status.' };
+      ? {
+          label: "Applying changes...",
+          className: "pending",
+          detail: "Please wait while UniFi is updated.",
+        }
+      : error
+        ? { label: "Action needs attention", className: "bad", detail: error }
+        : blockedCount > 0
+          ? {
+              label: "Some devices blocked",
+              className: "bad",
+              detail: `${blockedCount} blocked, ${allowedCount} allowed.`,
+            }
+          : devices.length > 0
+            ? {
+                label: "Internet access: Allowed",
+                className: "ok",
+                detail: "All configured devices are currently allowed.",
+              }
+            : {
+                label: "Internet access: No devices",
+                className: "neutral",
+                detail: "Add devices below to track their UniFi status.",
+              };
   const lastApplyText = lastApply?.appliedAt
-    ? `${lastApply.action === 'block' ? 'Blocked' : 'Allowed'} ${lastApply.deviceCount} at ${new Date(lastApply.appliedAt).toLocaleString()}`
-    : 'Never';
+    ? `${lastApply.action === "block" ? "Blocked" : "Allowed"} ${lastApply.deviceCount} at ${new Date(lastApply.appliedAt).toLocaleString()}`
+    : "Never";
 
   return (
     <main className="shell">
       <section className="hero">
-        <img className="hero-logo" src={logo} alt="Shut 'Em Down Internet Access Denied logo" />
+        <img
+          className="hero-logo"
+          src={logo}
+          alt="Shut 'Em Down Internet Access Denied logo"
+        />
         <div className="hero-controls">
-          <div className={`access-state ${accessState.className}`} role="status" aria-live="polite">
+          <div
+            className={`access-state ${accessState.className}`}
+            role="status"
+            aria-live="polite"
+          >
             <span>Current state</span>
             <strong>{accessState.label}</strong>
             <p>{accessState.detail}</p>
           </div>
           <div className="action-row primary-actions">
-            <button className="block" onClick={() => applyChanges('block')} disabled={busy}>
-              {applying ? 'Applying...' : 'Block All Devices'}
+            <button
+              className="block"
+              onClick={() => applyChanges("block")}
+              disabled={busy}
+            >
+              {applying ? "Applying..." : "Block All Devices"}
             </button>
-            <button className="allow" onClick={() => applyChanges('allow')} disabled={busy}>
-              {applying ? 'Applying...' : 'Allow All Devices'}
+            <button
+              className="allow"
+              onClick={() => applyChanges("allow")}
+              disabled={busy}
+            >
+              {applying ? "Applying..." : "Allow All Devices"}
             </button>
           </div>
         </div>
@@ -160,11 +223,19 @@ function App() {
       <section className="status-grid" aria-label="Status">
         <article>
           <span>Config</span>
-          <strong className={status?.configLoaded ? 'ok' : 'bad'}>{status?.configLoaded ? 'Loaded' : 'Missing'}</strong>
+          <strong className={status?.configLoaded ? "ok" : "bad"}>
+            {status?.configLoaded ? "Loaded" : "Missing"}
+          </strong>
         </article>
         <article>
           <span>UniFi connection</span>
-          <strong>{status?.unifiEnabled ? (status?.unifiConfigured ? 'Connected' : 'Needs config') : 'Stub mode'}</strong>
+          <strong>
+            {status?.unifiEnabled
+              ? status?.unifiConfigured
+                ? "Connected"
+                : "Needs config"
+              : "Stub mode"}
+          </strong>
         </article>
         <article>
           <span>Last action</span>
@@ -178,7 +249,9 @@ function App() {
       <section className="panel group-control">
         <div>
           <h2>Group Controls</h2>
-          <p>Choose a saved group, then block or allow only matching devices.</p>
+          <p>
+            Choose a saved group, then block or allow only matching devices.
+          </p>
         </div>
         <label>
           Group name
@@ -186,17 +259,27 @@ function App() {
             list="known-groups"
             value={targetGroupName}
             onChange={(event) => setTargetGroupName(event.target.value)}
-            placeholder={groups[0] || 'TVs'}
+            placeholder={groups[0] || "TVs"}
           />
         </label>
         <datalist id="known-groups">
-          {groups.map((group) => <option value={group} key={group} />)}
+          {groups.map((group) => (
+            <option value={group} key={group} />
+          ))}
         </datalist>
         <div className="action-row">
-          <button className="block" onClick={() => applyChanges('block', targetGroupName)} disabled={busy || !targetGroupName.trim()}>
+          <button
+            className="block"
+            onClick={() => applyChanges("block", targetGroupName)}
+            disabled={busy || !targetGroupName.trim()}
+          >
             Block Group
           </button>
-          <button className="allow" onClick={() => applyChanges('allow', targetGroupName)} disabled={busy || !targetGroupName.trim()}>
+          <button
+            className="allow"
+            onClick={() => applyChanges("allow", targetGroupName)}
+            disabled={busy || !targetGroupName.trim()}
+          >
             Allow Group
           </button>
         </div>
@@ -215,20 +298,36 @@ function App() {
           ) : (
             <div className="device-list">
               {devices.map((device) => {
-                const accessStatus = device.status === 'blocked' ? 'blocked' : 'allowed';
+                const accessStatus =
+                  device.status === "blocked" ? "blocked" : "allowed";
                 return (
                   <article className="device-card" key={device.macAddress}>
                     <div className="device-main">
                       <div className="device-title-row">
-                        <strong>{device.name || 'Unnamed device'}</strong>
-                        <span className={`state-pill ${accessStatus}`}>{accessStatus === 'blocked' ? 'Blocked' : 'Allowed'}</span>
+                        <strong>{device.name || "Unnamed device"}</strong>
+                        <span className={`state-pill ${accessStatus}`}>
+                          {accessStatus === "blocked" ? "Blocked" : "Allowed"}
+                        </span>
                       </div>
-                      {device.groupName && <span className="group-pill">{device.groupName}</span>}
+                      {device.groupName && (
+                        <span className="group-pill">{device.groupName}</span>
+                      )}
                       <code>{device.macAddress}</code>
-                      {device.statusUpdatedAt && <p>Status checked {new Date(device.statusUpdatedAt).toLocaleString()}</p>}
+                      {device.statusUpdatedAt && (
+                        <p>
+                          Status checked{" "}
+                          {new Date(device.statusUpdatedAt).toLocaleString()}
+                        </p>
+                      )}
                       {device.notes && <p>{device.notes}</p>}
                     </div>
-                    <button className="remove" onClick={() => removeDevice(device.macAddress)} disabled={busy}>Remove</button>
+                    <button
+                      className="remove"
+                      onClick={() => removeDevice(device.macAddress)}
+                      disabled={busy}
+                    >
+                      Remove
+                    </button>
                   </article>
                 );
               })}
@@ -240,7 +339,11 @@ function App() {
           <h2>Add Devices</h2>
           <label>
             Group name
-            <input value={groupName} onChange={(event) => setGroupName(event.target.value)} placeholder="Alexis" />
+            <input
+              value={groupName}
+              onChange={(event) => setGroupName(event.target.value)}
+              placeholder="Alexis"
+            />
           </label>
           <label>
             MAC addresses
@@ -253,17 +356,27 @@ function App() {
           </label>
           <label>
             Name
-            <input value={name} onChange={(event) => setName(event.target.value)} placeholder="Kids iPad" />
+            <input
+              value={name}
+              onChange={(event) => setName(event.target.value)}
+              placeholder="Kids iPad"
+            />
           </label>
           <label>
             Notes
-            <input value={notes} onChange={(event) => setNotes(event.target.value)} placeholder="Block during downtime" />
+            <input
+              value={notes}
+              onChange={(event) => setNotes(event.target.value)}
+              placeholder="Block during downtime"
+            />
           </label>
-          <button type="submit" disabled={busy}>{saving ? 'Saving...' : 'Add to List'}</button>
+          <button type="submit" disabled={busy}>
+            {saving ? "Saving..." : "Add to List"}
+          </button>
         </form>
       </div>
     </main>
   );
 }
 
-createRoot(document.getElementById('root')).render(<App />);
+createRoot(document.getElementById("root")).render(<App />);

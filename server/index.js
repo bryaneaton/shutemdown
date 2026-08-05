@@ -1,32 +1,37 @@
-import express from 'express';
-import path from 'node:path';
-import { fileURLToPath } from 'node:url';
-import { loadServerConfig } from './config.js';
-import { normalizeMacAddress, parseMacAddressText } from './mac.js';
-import { readDevices, writeDevices } from './storage.js';
-import { applyDeviceList, getApplyStatus, normalizeDeviceStatus, readDeviceStatuses } from './unifiService.js';
+import express from "express";
+import path from "node:path";
+import { fileURLToPath } from "node:url";
+import { loadServerConfig } from "./config.js";
+import { normalizeMacAddress, parseMacAddressText } from "./mac.js";
+import { readDevices, writeDevices } from "./storage.js";
+import {
+  applyDeviceList,
+  getApplyStatus,
+  normalizeDeviceStatus,
+  readDeviceStatuses,
+} from "./unifiService.js";
 
 const app = express();
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const rootDir = path.resolve(__dirname, '..');
+const rootDir = path.resolve(__dirname, "..");
 let lastDeviceStatusRefresh = null;
 
-app.use(express.json({ limit: '128kb' }));
+app.use(express.json({ limit: "128kb" }));
 
 function toDevice(input) {
   return {
     macAddress: normalizeMacAddress(input.macAddress),
     groupName: normalizeGroupName(input.groupName),
-    name: typeof input.name === 'string' ? input.name.trim() : '',
-    notes: typeof input.notes === 'string' ? input.notes.trim() : '',
+    name: typeof input.name === "string" ? input.name.trim() : "",
+    notes: typeof input.notes === "string" ? input.notes.trim() : "",
     status: normalizeDeviceStatus(input.status),
     statusUpdatedAt: input.statusUpdatedAt || new Date().toISOString(),
-    addedAt: input.addedAt || new Date().toISOString()
+    addedAt: input.addedAt || new Date().toISOString(),
   };
 }
 
 function normalizeGroupName(value) {
-  return typeof value === 'string' ? value.trim() : '';
+  return typeof value === "string" ? value.trim() : "";
 }
 
 function groupKey(value) {
@@ -37,16 +42,16 @@ function devicesFromRequest(body) {
   if (Array.isArray(body.devices)) {
     return body.devices.map((device) => ({
       ...device,
-      groupName: device.groupName ?? body.groupName
+      groupName: device.groupName ?? body.groupName,
     }));
   }
 
-  if (typeof body.macAddresses === 'string') {
+  if (typeof body.macAddresses === "string") {
     return parseMacAddressText(body.macAddresses).map((macAddress) => ({
       macAddress,
       groupName: body.groupName,
       name: body.name,
-      notes: body.notes
+      notes: body.notes,
     }));
   }
 
@@ -60,12 +65,16 @@ function devicesFromRequest(body) {
 function selectDevicesForApply(devices, groupName) {
   const normalizedGroupName = normalizeGroupName(groupName);
   if (!normalizedGroupName) {
-    return { devices, groupName: '' };
+    return { devices, groupName: "" };
   }
 
-  const selectedDevices = devices.filter((device) => groupKey(device.groupName) === groupKey(normalizedGroupName));
+  const selectedDevices = devices.filter(
+    (device) => groupKey(device.groupName) === groupKey(normalizedGroupName),
+  );
   if (selectedDevices.length === 0) {
-    const error = new Error(`No devices found for group: ${normalizedGroupName}`);
+    const error = new Error(
+      `No devices found for group: ${normalizedGroupName}`,
+    );
     error.status = 404;
     throw error;
   }
@@ -77,7 +86,7 @@ function recordDeviceStatusRefreshError(error) {
   lastDeviceStatusRefresh = {
     ok: false,
     checkedAt: new Date().toISOString(),
-    error: error.message
+    error: error.message,
   };
   return lastDeviceStatusRefresh;
 }
@@ -90,7 +99,9 @@ async function refreshStoredDeviceStatuses(serverConfig, targetDevices = null) {
   }
 
   const statusResult = await readDeviceStatuses(selectedDevices, serverConfig);
-  const statusByMac = new Map(statusResult.results.map((result) => [result.macAddress, result]));
+  const statusByMac = new Map(
+    statusResult.results.map((result) => [result.macAddress, result]),
+  );
   const checkedAt = statusResult.checkedAt || new Date().toISOString();
   let changed = false;
 
@@ -102,7 +113,11 @@ async function refreshStoredDeviceStatuses(serverConfig, targetDevices = null) {
       }
 
       changed = true;
-      return { ...device, status: normalizeDeviceStatus(device.status), statusUpdatedAt: device.statusUpdatedAt || checkedAt };
+      return {
+        ...device,
+        status: normalizeDeviceStatus(device.status),
+        statusUpdatedAt: device.statusUpdatedAt || checkedAt,
+      };
     }
 
     changed = true;
@@ -115,16 +130,16 @@ async function refreshStoredDeviceStatuses(serverConfig, targetDevices = null) {
 
   lastDeviceStatusRefresh = {
     ...statusResult,
-    deviceCount: selectedDevices.length
+    deviceCount: selectedDevices.length,
   };
 
   return {
     ...lastDeviceStatusRefresh,
-    devices: nextDevices
+    devices: nextDevices,
   };
 }
 
-app.get('/api/devices', async (_req, res, next) => {
+app.get("/api/devices", async (_req, res, next) => {
   try {
     res.json({ devices: await readDevices() });
   } catch (error) {
@@ -132,15 +147,19 @@ app.get('/api/devices', async (_req, res, next) => {
   }
 });
 
-app.post('/api/devices', async (req, res, next) => {
+app.post("/api/devices", async (req, res, next) => {
   try {
     const inputs = devicesFromRequest(req.body);
     if (inputs.length === 0) {
-      return res.status(400).json({ error: 'Provide macAddress, macAddresses, or devices' });
+      return res
+        .status(400)
+        .json({ error: "Provide macAddress, macAddresses, or devices" });
     }
 
     const existing = await readDevices();
-    const byMac = new Map(existing.map((device) => [device.macAddress, device]));
+    const byMac = new Map(
+      existing.map((device) => [device.macAddress, device]),
+    );
     const added = [];
     const updated = [];
     const rejected = [];
@@ -155,8 +174,9 @@ app.post('/api/devices', async (req, res, next) => {
             ...device,
             addedAt: existingDevice.addedAt || device.addedAt,
             status: existingDevice.status || device.status,
-            statusUpdatedAt: existingDevice.statusUpdatedAt || device.statusUpdatedAt,
-            updatedAt: new Date().toISOString()
+            statusUpdatedAt:
+              existingDevice.statusUpdatedAt || device.statusUpdatedAt,
+            updatedAt: new Date().toISOString(),
           };
           byMac.set(device.macAddress, nextDevice);
           updated.push(nextDevice);
@@ -165,7 +185,10 @@ app.post('/api/devices', async (req, res, next) => {
         byMac.set(device.macAddress, device);
         added.push(device);
       } catch (error) {
-        rejected.push({ macAddress: input?.macAddress || '', reason: error.message });
+        rejected.push({
+          macAddress: input?.macAddress || "",
+          reason: error.message,
+        });
       }
     }
 
@@ -177,21 +200,23 @@ app.post('/api/devices', async (req, res, next) => {
       devices: [...byMac.values()],
       added,
       updated,
-      rejected
+      rejected,
     });
   } catch (error) {
     next(error);
   }
 });
 
-app.delete('/api/devices/:macAddress', async (req, res, next) => {
+app.delete("/api/devices/:macAddress", async (req, res, next) => {
   try {
     const macAddress = normalizeMacAddress(req.params.macAddress);
     const devices = await readDevices();
-    const nextDevices = devices.filter((device) => device.macAddress !== macAddress);
+    const nextDevices = devices.filter(
+      (device) => device.macAddress !== macAddress,
+    );
 
     if (nextDevices.length === devices.length) {
-      return res.status(404).json({ error: 'Device not found' });
+      return res.status(404).json({ error: "Device not found" });
     }
 
     await writeDevices(nextDevices);
@@ -201,65 +226,89 @@ app.delete('/api/devices/:macAddress', async (req, res, next) => {
   }
 });
 
-app.post('/api/apply', async (req, res, next) => {
+app.post("/api/apply", async (req, res, next) => {
   try {
-    const selection = selectDevicesForApply(await readDevices(), req.body?.groupName);
-    const result = await applyDeviceList(selection.devices, await loadServerConfig(), 'block', {
-      groupName: selection.groupName
-    });
-    result.statusRefresh = await refreshStoredDeviceStatuses(await loadServerConfig(), selection.devices).catch(recordDeviceStatusRefreshError);
+    const selection = selectDevicesForApply(
+      await readDevices(),
+      req.body?.groupName,
+    );
+    const result = await applyDeviceList(
+      selection.devices,
+      await loadServerConfig(),
+      "block",
+      {
+        groupName: selection.groupName,
+      },
+    );
+    result.statusRefresh = await refreshStoredDeviceStatuses(
+      await loadServerConfig(),
+      selection.devices,
+    ).catch(recordDeviceStatusRefreshError);
     res.json(result);
   } catch (error) {
     next(error);
   }
 });
 
-app.post('/api/apply/:action', async (req, res, next) => {
+app.post("/api/apply/:action", async (req, res, next) => {
   try {
-    const action = String(req.params.action || '').toLowerCase();
-    if (!['block', 'allow'].includes(action)) {
-      return res.status(400).json({ error: 'Action must be block or allow' });
+    const action = String(req.params.action || "").toLowerCase();
+    if (!["block", "allow"].includes(action)) {
+      return res.status(400).json({ error: "Action must be block or allow" });
     }
 
-    const selection = selectDevicesForApply(await readDevices(), req.body?.groupName);
+    const selection = selectDevicesForApply(
+      await readDevices(),
+      req.body?.groupName,
+    );
     const serverConfig = await loadServerConfig();
-    const result = await applyDeviceList(selection.devices, serverConfig, action, {
-      groupName: selection.groupName
-    });
-    result.statusRefresh = await refreshStoredDeviceStatuses(serverConfig, selection.devices).catch(recordDeviceStatusRefreshError);
+    const result = await applyDeviceList(
+      selection.devices,
+      serverConfig,
+      action,
+      {
+        groupName: selection.groupName,
+      },
+    );
+    result.statusRefresh = await refreshStoredDeviceStatuses(
+      serverConfig,
+      selection.devices,
+    ).catch(recordDeviceStatusRefreshError);
     res.json(result);
   } catch (error) {
     next(error);
   }
 });
 
-app.get('/api/status', async (_req, res) => {
+app.get("/api/status", async (_req, res) => {
   const serverConfig = await loadServerConfig();
   res.json({
     configLoaded: serverConfig.loaded,
     configError: serverConfig.error || null,
     unifiEnabled: Boolean(serverConfig.config?.unifi?.enabled),
-    unifiMode: serverConfig.config?.unifi?.enabled ? 'api-key' : 'stub',
+    unifiMode: serverConfig.config?.unifi?.enabled ? "api-key" : "stub",
     unifiConfigured: Boolean(
       serverConfig.config?.unifi?.apiKey &&
       serverConfig.config?.unifi?.consoleId &&
-      serverConfig.config?.unifi?.site
+      serverConfig.config?.unifi?.site,
     ),
     lastApply: getApplyStatus(),
-    lastDeviceStatusRefresh
+    lastDeviceStatusRefresh,
   });
 });
 
-if (process.env.NODE_ENV === 'production') {
-  app.use(express.static(path.join(rootDir, 'dist')));
+if (process.env.NODE_ENV === "production") {
+  app.use(express.static(path.join(rootDir, "dist")));
   app.get(/^(?!\/api).*/, (_req, res) => {
-    res.sendFile(path.join(rootDir, 'dist/index.html'));
+    res.sendFile(path.join(rootDir, "dist/index.html"));
   });
 }
 
 app.use((error, _req, res, _next) => {
-  const status = error.status || (error.message?.startsWith('Invalid MAC address') ? 400 : 500);
-  res.status(status).json({ error: error.message || 'Server error' });
+  const status =
+    error.status ||
+    (error.message?.startsWith("Invalid MAC address") ? 400 : 500);
+  res.status(status).json({ error: error.message || "Server error" });
 });
 
 const config = await loadServerConfig();
