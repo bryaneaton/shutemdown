@@ -12,6 +12,7 @@
     "dev:server": "PORT=3002 node --watch server/index.js",
     "dev:client": "vite --host 0.0.0.0",
     "build": "vite build",
+    "test": "node --test",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
     "hooks:install": "git config core.hooksPath .githooks",
