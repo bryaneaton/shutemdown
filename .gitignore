@@ -1,6 +1,5 @@
 node_modules/
 dist/
-package-lock.json
 
 # Local/example scripts not part of the app.
 unifi_mac_internet.py

@@ -26,3 +26,9 @@ jobs:
 
       - name: Check formatting
         run: npm run format:check
+
+      - name: Check server syntax
+        run: node --check server/*.js
+
+      - name: Build application
+        run: npm run build
