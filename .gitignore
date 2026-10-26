@@ -8,6 +8,7 @@ unifi_mac_internet.py
 # Runtime config and persisted device data. Keep secrets out of git.
 config/server.yaml
 config/devices.json
+config/schedules.json
 
 # Local logs and environment files.
 *.log

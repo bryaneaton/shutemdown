@@ -4,6 +4,8 @@ import { fileURLToPath } from "node:url";
 import { loadServerConfig } from "./config.js";
 import { normalizeMacAddress, parseMacAddressText } from "./mac.js";
 import { readDevices, writeDevices } from "./storage.js";
+import { readSchedules, writeSchedules } from "./scheduleStorage.js";
+import { createScheduleJobService } from "./jobService.js";
 import {
   applyDeviceList,
   getApplyStatus,
@@ -15,6 +17,7 @@ const app = express();
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const rootDir = path.resolve(__dirname, "..");
 let lastDeviceStatusRefresh = null;
+let scheduleJob;
 
 app.use(express.json({ limit: "128kb" }));
 
@@ -36,6 +39,39 @@ function normalizeGroupName(value) {
 
 function groupKey(value) {
   return normalizeGroupName(value).toLowerCase();
+}
+
+function normalizeSchedule(input = {}, existing = {}) {
+  const groupName = normalizeGroupName(input.groupName);
+  const timePattern = /^([01]\d|2[0-3]):[0-5]\d$/;
+  const days = Array.isArray(input.days)
+    ? [...new Set(input.days.map(Number))].sort((a, b) => a - b)
+    : [];
+
+  if (!groupName) throw new Error("A group name is required");
+  if (!timePattern.test(input.offTime) || !timePattern.test(input.onTime)) {
+    throw new Error("Schedule times must use HH:MM format");
+  }
+  if (input.offTime === input.onTime) {
+    throw new Error("On and off times must be different");
+  }
+  if (
+    days.length === 0 ||
+    days.some((day) => !Number.isInteger(day) || day < 0 || day > 6)
+  ) {
+    throw new Error("Choose at least one valid weekday");
+  }
+
+  return {
+    id: existing.id || crypto.randomUUID(),
+    groupName,
+    offTime: input.offTime,
+    onTime: input.onTime,
+    days,
+    enabled: input.enabled !== false,
+    createdAt: existing.createdAt || new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+  };
 }
 
 function devicesFromRequest(body) {
@@ -312,6 +348,61 @@ app.post("/api/apply/:action", async (req, res, next) => {
   }
 });
 
+app.get("/api/schedules", async (_req, res, next) => {
+  try {
+    res.json({ schedules: await readSchedules() });
+  } catch (error) {
+    next(error);
+  }
+});
+
+app.post("/api/schedules", async (req, res, next) => {
+  try {
+    const devices = await readDevices();
+    const groupName = normalizeGroupName(req.body?.groupName);
+    if (
+      !devices.some(
+        (device) => groupKey(device.groupName) === groupKey(groupName),
+      )
+    ) {
+      return res
+        .status(404)
+        .json({ error: `No devices found for group: ${groupName}` });
+    }
+
+    const schedules = await readSchedules();
+    const existing = schedules.find(
+      (schedule) => groupKey(schedule.groupName) === groupKey(groupName),
+    );
+    const schedule = normalizeSchedule(req.body, existing);
+    const nextSchedules = existing
+      ? schedules.map((item) => (item.id === existing.id ? schedule : item))
+      : [...schedules, schedule];
+    await writeSchedules(nextSchedules);
+    res
+      .status(existing ? 200 : 201)
+      .json({ schedule, schedules: nextSchedules });
+  } catch (error) {
+    next(error);
+  }
+});
+
+app.delete("/api/schedules/:id", async (req, res, next) => {
+  try {
+    const schedules = await readSchedules();
+    const nextSchedules = schedules.filter(
+      (schedule) => schedule.id !== req.params.id,
+    );
+    if (nextSchedules.length === schedules.length) {
+      return res.status(404).json({ error: "Schedule not found" });
+    }
+    await writeSchedules(nextSchedules);
+    res.json({ schedules: nextSchedules });
+  } catch (error) {
+    next(error);
+  }
+});
+
 app.get("/api/status", async (_req, res) => {
   const serverConfig = await loadServerConfig();
   res.json({
@@ -326,6 +417,8 @@ app.get("/api/status", async (_req, res) => {
     ),
     lastApply: getApplyStatus(),
     lastDeviceStatusRefresh,
+    schedules: await readSchedules(),
+    scheduleJob: scheduleJob?.getStatus() || null,
   });
 });
 
@@ -348,6 +441,13 @@ refreshStoredDeviceStatuses(config).catch((error) => {
   recordDeviceStatusRefreshError(error);
   console.error(`Device status refresh failed: ${error.message}`);
 });
+
+scheduleJob = createScheduleJobService({
+  getServerConfig: loadServerConfig,
+  onApplied: recordAppliedDeviceStatuses,
+});
+scheduleJob.start();
+
 const port = Number(process.env.PORT || config.config?.server?.port || 3000);
 app.listen(port, () => {
   console.log(`Server listening on http://localhost:${port}`);

@@ -17,6 +17,7 @@ async function api(path, options = {}) {
 
 function App() {
   const [devices, setDevices] = useState([]);
+  const [schedules, setSchedules] = useState([]);
   const [status, setStatus] = useState(null);
   const [macAddresses, setMacAddresses] = useState("");
   const [groupName, setGroupName] = useState("");
@@ -28,14 +29,21 @@ function App() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [applying, setApplying] = useState(false);
+  const [scheduleGroup, setScheduleGroup] = useState("");
+  const [offTime, setOffTime] = useState("21:00");
+  const [onTime, setOnTime] = useState("07:00");
+  const [scheduleDays, setScheduleDays] = useState([1, 2, 3, 4, 5]);
+  const [savingSchedule, setSavingSchedule] = useState(false);
 
   async function refresh() {
-    const [deviceData, statusData] = await Promise.all([
+    const [deviceData, statusData, scheduleData] = await Promise.all([
       api("/api/devices"),
       api("/api/status"),
+      api("/api/schedules"),
     ]);
     setDevices(deviceData.devices);
     setStatus(statusData);
+    setSchedules(scheduleData.schedules);
   }
 
   useEffect(() => {
@@ -137,10 +145,56 @@ function App() {
     }
   }
 
+  async function saveSchedule(event) {
+    event.preventDefault();
+    setSavingSchedule(true);
+    setError("");
+    setMessage("");
+    try {
+      const data = await api("/api/schedules", {
+        method: "POST",
+        body: JSON.stringify({
+          groupName: scheduleGroup,
+          offTime,
+          onTime,
+          days: scheduleDays,
+        }),
+      });
+      setSchedules(data.schedules);
+      setMessage(`Saved schedule for ${scheduleGroup}.`);
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setSavingSchedule(false);
+    }
+  }
+
+  async function removeSchedule(id, group) {
+    if (!window.confirm(`Remove the schedule for ${group}?`)) return;
+    try {
+      const data = await api(`/api/schedules/${encodeURIComponent(id)}`, {
+        method: "DELETE",
+      });
+      setSchedules(data.schedules);
+      setMessage(`Removed schedule for ${group}.`);
+    } catch (err) {
+      setError(err.message);
+    }
+  }
+
+  function toggleScheduleDay(day) {
+    setScheduleDays((current) =>
+      current.includes(day)
+        ? current.filter((value) => value !== day)
+        : [...current, day].sort((a, b) => a - b),
+    );
+  }
+
   const groups = [
     ...new Set(devices.map((device) => device.groupName).filter(Boolean)),
   ].sort((a, b) => a.localeCompare(b));
   const busy = saving || applying || loading;
+  const dayLabels = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
   const lastApply = status?.lastApply;
   const blockedCount = devices.filter(
     (device) => device.status === "blocked",
@@ -286,6 +340,97 @@ function App() {
             Allow Group
           </button>
         </div>
+      </section>
+
+      <section className="panel schedules">
+        <div className="panel-head">
+          <div>
+            <h2>Automatic Schedules</h2>
+            <p>Block and allow one group automatically each week.</p>
+          </div>
+          <span>{schedules.length} configured</span>
+        </div>
+        <form className="schedule-form" onSubmit={saveSchedule}>
+          <label>
+            Group
+            <select
+              value={scheduleGroup}
+              onChange={(event) => setScheduleGroup(event.target.value)}
+              required
+              disabled={busy || groups.length === 0}
+            >
+              <option value="">Choose a group</option>
+              {groups.map((group) => (
+                <option value={group} key={group}>
+                  {group}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label>
+            Block at
+            <input
+              type="time"
+              value={offTime}
+              onChange={(event) => setOffTime(event.target.value)}
+              required
+            />
+          </label>
+          <label>
+            Allow at
+            <input
+              type="time"
+              value={onTime}
+              onChange={(event) => setOnTime(event.target.value)}
+              required
+            />
+          </label>
+          <fieldset>
+            <legend>Days</legend>
+            <div className="day-picker">
+              {dayLabels.map((label, day) => (
+                <label key={label}>
+                  <input
+                    type="checkbox"
+                    checked={scheduleDays.includes(day)}
+                    onChange={() => toggleScheduleDay(day)}
+                  />
+                  {label}
+                </label>
+              ))}
+            </div>
+          </fieldset>
+          <button
+            type="submit"
+            disabled={busy || savingSchedule || !scheduleGroup}
+          >
+            {savingSchedule ? "Saving..." : "Save Schedule"}
+          </button>
+        </form>
+        {schedules.length > 0 && (
+          <div className="schedule-list">
+            {schedules.map((schedule) => (
+              <article className="schedule-row" key={schedule.id}>
+                <div>
+                  <strong>{schedule.groupName}</strong>
+                  <span>
+                    {schedule.offTime} block / {schedule.onTime} allow -{" "}
+                    {schedule.days.map((day) => dayLabels[day]).join(", ")}
+                  </span>
+                </div>
+                <button
+                  className="remove"
+                  onClick={() =>
+                    removeSchedule(schedule.id, schedule.groupName)
+                  }
+                  disabled={busy}
+                >
+                  Remove
+                </button>
+              </article>
+            ))}
+          </div>
+        )}
       </section>
 
       <div className="content-grid">

@@ -12,6 +12,7 @@ A small LAN-friendly web app for shutting down access to kids' devices with one 
 - Track each device's current `allowed` or `blocked` status in `config/devices.json`.
 - Block or allow the full device list with one tap.
 - Block or allow only devices in a matching group name.
+- Schedule weekly block and allow times for each device group.
 - Run safely in stub mode until UniFi API settings are enabled.
 - Serve the built frontend from the Node server in production.
 
@@ -49,7 +50,7 @@ npm run dev
 Default URLs:
 
 - Frontend: `http://localhost:5173`
-- API server: `http://localhost:3000`
+- API server: `http://localhost:3002`
 
 ## Production
 
@@ -65,7 +66,7 @@ Start the production server:
 npm start
 ```
 
-The production server listens on `PORT`, then `config/server.yaml` `server.port`, then `3000`. In production it serves both the API and the built frontend from `dist/`.
+The production server listens on `PORT`, then `config/server.yaml` `server.port`, then `3000`. Development uses port `3002`; production remains on `3000` by default. In production it serves both the API and the built frontend from `dist/`.
 
 ## Configuration
 
@@ -134,6 +135,34 @@ Check status:
 
 ```http
 GET /api/status
+```
+
+List schedules:
+
+```http
+GET /api/schedules
+```
+
+Create or replace a group's weekly schedule:
+
+```http
+POST /api/schedules
+Content-Type: application/json
+
+{
+  "groupName": "Alexis",
+  "offTime": "21:00",
+  "onTime": "07:00",
+  "days": [1, 2, 3, 4, 5]
+}
+```
+
+Weekdays use JavaScript numbering: Sunday is `0` and Saturday is `6`. The server checks schedules every 30 seconds using its local timezone.
+
+Remove a schedule:
+
+```http
+DELETE /api/schedules/:id
 ```
 
 On server startup, the backend reads UniFi client state and updates each saved device record with `status` and `statusUpdatedAt`. After block/allow actions, the backend refreshes those device statuses from UniFi again; the app does not infer device status from the last button pressed.
