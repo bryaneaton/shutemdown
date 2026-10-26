@@ -213,6 +213,39 @@ h1 {
   box-shadow: 0 12px 30px rgb(23 32 51 / 8%);
 }
 
+.word-challenge-backdrop {
+  position: fixed;
+  z-index: 10;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  background: rgb(23 32 51 / 58%);
+  padding: var(--space-md);
+}
+
+.word-challenge {
+  width: min(100%, 28rem);
+  border-radius: 1rem;
+  background: #fff;
+  box-shadow: 0 1.5rem 4rem rgb(23 32 51 / 28%);
+  padding: var(--space-lg);
+}
+
+.word-challenge h2 {
+  margin-top: 0;
+}
+
+.word-challenge p {
+  color: #657085;
+}
+
+.word-challenge-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--space-sm);
+  margin-top: var(--space-md);
+}
+
 .status-grid article {
   padding: var(--space-md);
 }

@@ -1,6 +1,10 @@
 server:
   port: 3000
 
+security:
+  # Required before adding, removing, blocking, or allowing devices.
+  wordOfDay: "replace-with-private-word"
+
 unifi:
   # Keep false until you are ready for Block/Allow to make real UniFi changes.
   enabled: false

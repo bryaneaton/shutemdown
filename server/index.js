@@ -41,6 +41,26 @@ function groupKey(value) {
   return normalizeGroupName(value).toLowerCase();
 }
 
+function requireWordOfDay(body, serverConfig) {
+  const configuredWord = serverConfig.config?.security?.wordOfDay;
+  if (typeof configuredWord !== "string" || !configuredWord.trim()) {
+    const error = new Error("The word of the day is not configured");
+    error.status = 503;
+    throw error;
+  }
+
+  const submittedWord =
+    typeof body?.wordOfDay === "string" ? body.wordOfDay.trim() : "";
+  if (
+    submittedWord.toLocaleLowerCase() !==
+    configuredWord.trim().toLocaleLowerCase()
+  ) {
+    const error = new Error("The word of the day is incorrect");
+    error.status = 403;
+    throw error;
+  }
+}
+
 function normalizeSchedule(input = {}, existing = {}) {
   const groupName = normalizeGroupName(input.groupName);
   const timePattern = /^([01]\d|2[0-3]):[0-5]\d$/;
@@ -221,6 +241,7 @@ app.post("/api/devices", async (req, res, next) => {
         .status(400)
         .json({ error: "Provide macAddress, macAddresses, or devices" });
     }
+    requireWordOfDay(req.body, await loadServerConfig());
 
     const existing = await readDevices();
     const byMac = new Map(
@@ -275,6 +296,7 @@ app.post("/api/devices", async (req, res, next) => {
 
 app.delete("/api/devices/:macAddress", async (req, res, next) => {
   try {
+    requireWordOfDay(req.body, await loadServerConfig());
     const macAddress = normalizeMacAddress(req.params.macAddress);
     const devices = await readDevices();
     const nextDevices = devices.filter(
@@ -294,20 +316,22 @@ app.delete("/api/devices/:macAddress", async (req, res, next) => {
 
 app.post("/api/apply", async (req, res, next) => {
   try {
+    const serverConfig = await loadServerConfig();
+    requireWordOfDay(req.body, serverConfig);
     const selection = selectDevicesForApply(
       await readDevices(),
       req.body?.groupName,
     );
     const result = await applyDeviceList(
       selection.devices,
-      await loadServerConfig(),
+      serverConfig,
       "block",
       {
         groupName: selection.groupName,
       },
     );
     result.statusRefresh = await refreshStoredDeviceStatuses(
-      await loadServerConfig(),
+      serverConfig,
       selection.devices,
     ).catch(recordDeviceStatusRefreshError);
     await recordAppliedDeviceStatuses("block", result);
@@ -324,11 +348,12 @@ app.post("/api/apply/:action", async (req, res, next) => {
       return res.status(400).json({ error: "Action must be block or allow" });
     }
 
+    const serverConfig = await loadServerConfig();
+    requireWordOfDay(req.body, serverConfig);
     const selection = selectDevicesForApply(
       await readDevices(),
       req.body?.groupName,
     );
-    const serverConfig = await loadServerConfig();
     const result = await applyDeviceList(
       selection.devices,
       serverConfig,

@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { createRoot } from "react-dom/client";
 import logo from "./assets/logo.png";
 import "./styles.css";
@@ -34,6 +34,40 @@ function App() {
   const [onTime, setOnTime] = useState("07:00");
   const [scheduleDays, setScheduleDays] = useState([1, 2, 3, 4, 5]);
   const [savingSchedule, setSavingSchedule] = useState(false);
+  const [wordChallengeOpen, setWordChallengeOpen] = useState(false);
+  const [wordChallengeValue, setWordChallengeValue] = useState("");
+  const [wordChallengeSeconds, setWordChallengeSeconds] = useState(30);
+  const wordChallengeResolver = useRef(null);
+
+  function promptForWordOfDay() {
+    return new Promise((resolve) => {
+      wordChallengeResolver.current = resolve;
+      setWordChallengeValue("");
+      setWordChallengeSeconds(30);
+      setWordChallengeOpen(true);
+    });
+  }
+
+  function finishWordChallenge(value) {
+    wordChallengeResolver.current?.(value);
+    wordChallengeResolver.current = null;
+    setWordChallengeOpen(false);
+    setWordChallengeValue("");
+  }
+
+  useEffect(() => {
+    if (!wordChallengeOpen) return;
+    if (wordChallengeSeconds === 0) {
+      finishWordChallenge(null);
+      return;
+    }
+
+    const timer = setTimeout(
+      () => setWordChallengeSeconds((seconds) => seconds - 1),
+      1000,
+    );
+    return () => clearTimeout(timer);
+  }, [wordChallengeOpen, wordChallengeSeconds]);
 
   async function refresh() {
     const [deviceData, statusData, scheduleData] = await Promise.all([
@@ -54,6 +88,8 @@ function App() {
 
   async function addDevices(event) {
     event.preventDefault();
+    const wordOfDay = promptForWordOfDay();
+    if (wordOfDay === null) return;
     setSaving(true);
     setError("");
     setMessage("");
@@ -61,7 +97,13 @@ function App() {
     try {
       const data = await api("/api/devices", {
         method: "POST",
-        body: JSON.stringify({ macAddresses, groupName, name, notes }),
+        body: JSON.stringify({
+          macAddresses,
+          groupName,
+          name,
+          notes,
+          wordOfDay,
+        }),
       });
       setDevices(data.devices);
       setMacAddresses("");
@@ -88,6 +130,8 @@ function App() {
     if (!window.confirm(`Remove ${macAddress} from the shutdown list?`)) {
       return;
     }
+    const wordOfDay = promptForWordOfDay();
+    if (wordOfDay === null) return;
 
     setError("");
     setMessage("");
@@ -95,6 +139,7 @@ function App() {
     try {
       const data = await api(`/api/devices/${encodeURIComponent(macAddress)}`, {
         method: "DELETE",
+        body: JSON.stringify({ wordOfDay }),
       });
       setDevices(data.devices);
       setMessage(`Removed ${macAddress}.`);
@@ -113,6 +158,9 @@ function App() {
       return;
     }
 
+    const wordOfDay = promptForWordOfDay();
+    if (wordOfDay === null) return;
+
     setApplying(true);
     setError("");
     setMessage("");
@@ -121,7 +169,9 @@ function App() {
       const result = await api(`/api/apply/${action}`, {
         method: "POST",
         body: JSON.stringify(
-          trimmedGroupName ? { groupName: trimmedGroupName } : {},
+          trimmedGroupName
+            ? { groupName: trimmedGroupName, wordOfDay }
+            : { wordOfDay },
         ),
       });
       await refresh();
@@ -523,6 +573,40 @@ function App() {
           </button>
         </form>
       </div>
+
+      {wordChallengeOpen && (
+        <div className="word-challenge-backdrop">
+          <form
+            className="word-challenge"
+            onSubmit={(event) => {
+              event.preventDefault();
+              finishWordChallenge(wordChallengeValue);
+            }}
+          >
+            <h2>Spell the word of the day</h2>
+            <p>
+              Enter the word correctly within {wordChallengeSeconds} seconds to
+              update device access.
+            </p>
+            <input
+              autoFocus
+              value={wordChallengeValue}
+              onChange={(event) => setWordChallengeValue(event.target.value)}
+              aria-label="Word of the day"
+            />
+            <div className="word-challenge-actions">
+              <button
+                type="button"
+                className="remove"
+                onClick={() => finishWordChallenge(null)}
+              >
+                Cancel
+              </button>
+              <button type="submit">Continue</button>
+            </div>
+          </form>
+        </div>
+      )}
     </main>
   );
 }

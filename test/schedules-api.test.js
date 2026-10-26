@@ -28,7 +28,7 @@ async function startServer() {
   await mkdir(configDirectory);
   await writeFile(
     path.join(configDirectory, "server.yaml"),
-    "server:\n  port: 0\nunifi:\n  enabled: false\n",
+    "server:\n  port: 0\nsecurity:\n  wordOfDay: test-word\nunifi:\n  enabled: false\n",
   );
   await writeFile(
     path.join(configDirectory, "devices.json"),
@@ -118,6 +118,31 @@ test("schedule API creates, replaces, lists, and deletes a schedule", async () =
 
     assert.equal(deleteResponse.status, 200);
     assert.deepEqual(deleted.schedules, []);
+  } finally {
+    await stopServer(server);
+  }
+});
+
+test("device changes require the configured word of the day", async () => {
+  const server = await startServer();
+
+  try {
+    const missingWordResponse = await fetch(`${server.baseUrl}/api/devices`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ macAddress: "11:22:33:44:55:66" }),
+    });
+    assert.equal(missingWordResponse.status, 403);
+
+    const validWordResponse = await fetch(`${server.baseUrl}/api/devices`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({
+        macAddress: "11:22:33:44:55:66",
+        wordOfDay: " TEST-WORD ",
+      }),
+    });
+    assert.equal(validWordResponse.status, 201);
   } finally {
     await stopServer(server);
   }

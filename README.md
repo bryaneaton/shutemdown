@@ -75,6 +75,7 @@ Runtime configuration lives in `config/server.yaml`.
 Important fields:
 
 - `server.port`: default app port.
+- `security.wordOfDay`: private word required for device changes. Do not commit the real word.
 - `unifi.enabled`: when `false`, block/allow actions run in stub mode.
 - `unifi.apiBaseUrl`: defaults to `https://api.ui.com`.
 - `unifi.apiKey`: required when UniFi integration is enabled.
@@ -84,6 +85,11 @@ Important fields:
 - `unifi.statusPath`: optional endpoint override for reading device status. Defaults to `/proxy/network/integration/v1/sites/{site}/clients`.
 
 Do not commit real API keys, credentials, or private network details.
+
+The UI asks for the configured word of the day before adding, removing, blocking,
+or allowing devices. The challenge expires after 30 seconds. The server enforces
+this requirement for API clients too. The comparison ignores capitalization and
+surrounding whitespace.
 
 ## API
 
