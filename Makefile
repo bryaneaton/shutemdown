@@ -1,4 +1,7 @@
-.PHONY: install dev build start test format format-check check ci deploy restart status logs hooks-install
+APP_PORT ?= 3000
+SERVICE ?= shutemdown
+
+.PHONY: install dev build start test format format-check check ci deploy stop restart status logs hooks-install
 
 install:
 	npm ci
@@ -25,18 +28,22 @@ check: format-check test build
 
 ci: check
 
-deploy: install build
-	sudo systemctl restart shutemdown
-	sudo systemctl --no-pager --full status shutemdown
+deploy: install build restart
+	$(MAKE) status
 
-restart:
-	sudo systemctl restart shutemdown
+stop:
+	-sudo systemctl stop $(SERVICE)
+	-sudo fuser -k -TERM $(APP_PORT)/tcp
+	sleep 1
+
+restart: stop
+	sudo systemctl start $(SERVICE)
 
 status:
-	sudo systemctl --no-pager --full status shutemdown
+	sudo systemctl --no-pager --full status $(SERVICE)
 
 logs:
-	sudo journalctl -u shutemdown -f
+	sudo journalctl -u $(SERVICE) -f
 
 hooks-install:
 	npm run hooks:install
