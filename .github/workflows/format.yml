@@ -30,5 +30,8 @@ jobs:
       - name: Check server syntax
         run: node --check server/*.js
 
+      - name: Run tests
+        run: npm test
+
       - name: Build application
         run: npm run build
