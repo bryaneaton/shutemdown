@@ -268,6 +268,83 @@ h1 {
   color: #657085;
 }
 
+.schedules {
+  margin-bottom: var(--space-md);
+}
+
+.schedules .panel-head {
+  align-items: start;
+}
+
+.schedules .panel-head p {
+  margin: 0.4rem 0 0;
+  color: #657085;
+}
+
+.schedule-form {
+  display: grid;
+  grid-template-columns: 1.2fr repeat(2, minmax(8rem, 0.55fr)) 2fr auto;
+  align-items: end;
+  gap: var(--space-md);
+}
+
+fieldset {
+  min-width: 0;
+  border: 0;
+  padding: 0;
+}
+
+legend {
+  margin-bottom: 0.45rem;
+  color: #39445a;
+  font-weight: 800;
+}
+
+.day-picker {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+}
+
+.day-picker label {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+  color: #39445a;
+  font-size: 0.85rem;
+}
+
+.day-picker input {
+  width: auto;
+  min-height: auto;
+}
+
+.schedule-list {
+  display: grid;
+  gap: 0.5rem;
+  margin-top: var(--space-md);
+}
+
+.schedule-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-md);
+  border-top: 1px solid rgb(23 32 51 / 10%);
+  padding-top: 0.75rem;
+}
+
+.schedule-row strong,
+.schedule-row span {
+  display: block;
+}
+
+.schedule-row span {
+  margin-top: 0.25rem;
+  color: #657085;
+  font-size: 0.9rem;
+}
+
 .notice {
   margin: 0 0 var(--space-md);
   font-weight: 800;
@@ -428,6 +505,16 @@ textarea {
     grid-template-columns: 1fr;
   }
 
+  .schedule-form {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .schedule-form label:first-child,
+  .schedule-form fieldset,
+  .schedule-form button {
+    grid-column: 1 / -1;
+  }
+
   .shell {
     padding: 0.75rem;
   }
@@ -457,8 +544,10 @@ textarea {
 
   .primary-actions button,
   .group-control button,
+  .schedule-form button,
   .form button,
-  .device-card .remove {
+  .device-card .remove,
+  .schedule-row .remove {
     width: 100%;
   }
 
